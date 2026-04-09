@@ -56,7 +56,40 @@ def delete_transaction(tx_id: int):
         raise HTTPException(status_code=404, detail="Transaction not found")
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────
+
+# ── Categories ─────────────────────────────────────────────────────────────
+
+class CategoryIn(BaseModel):
+    name: str
+
+class CategoryOut(CategoryIn):
+    id: int
+
+@app.get("/categories", response_model=list[CategoryOut])
+def get_categories():
+    with database.get_connection() as conn:
+        rows = conn.execute("SELECT * FROM categories ORDER BY name").fetchall()
+    return [dict(r) for r in rows]
+
+@app.post("/categories", response_model=CategoryOut, status_code=201)
+def create_category(cat: CategoryIn):
+    with database.get_connection() as conn:
+        try:
+            cur = conn.execute("INSERT INTO categories (name) VALUES (?)", (cat.name,))
+            conn.commit()
+            row = conn.execute("SELECT * FROM categories WHERE id = ?", (cur.lastrowid,)).fetchone()
+        except Exception:
+            raise HTTPException(status_code=409, detail="Category already exists")
+    return dict(row)
+
+@app.delete("/categories/{cat_id}", status_code=204)
+def delete_category(cat_id: int):
+    with database.get_connection() as conn:
+        deleted = conn.execute("DELETE FROM categories WHERE id = ?", (cat_id,)).rowcount
+        conn.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Category not found")
+
 
 def _row_to_dict(row):
     return {**dict(row)}
