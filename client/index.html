@@ -40,9 +40,16 @@
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
-      padding: 32px 0;
+      padding: 0;
       position: fixed;
       top: 0; left: 0;
+    }
+
+    .nav-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 24px 16px;
     }
 
     .nav-links {
@@ -50,6 +57,59 @@
       flex-direction: column;
       flex: 1;
     }
+
+    .nav-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 8px 24px;
+    }
+
+    .nav-setting {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 24px;
+      gap: 12px;
+    }
+
+    .nav-setting-label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .nav-currency-select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 4px 8px;
+      cursor: pointer;
+      outline: none;
+    }
+    .nav-currency-select:focus { border-color: var(--accent); }
+
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+    }
+    .hamburger span {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: var(--muted);
+      border-radius: 2px;
+      transition: all 0.2s;
+    }
+    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
     .nav-logo {
       font-family: var(--mono);
@@ -449,11 +509,13 @@
       margin-top: auto;
       padding: 16px 24px;
       border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
     .nav-user-name {
       font-size: 12px;
       color: var(--muted);
-      margin-bottom: 8px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -477,7 +539,7 @@
       .widget.wide  { grid-column: 1; }
     }
 
-    /* ── Mobile: top nav ── */
+    /* ── Mobile: hamburger nav ── */
     @media (max-width: 640px) {
       body { flex-direction: column; }
 
@@ -486,60 +548,57 @@
         min-height: unset;
         position: sticky;
         top: 0;
-        flex-direction: row;
-        align-items: stretch;
+        flex-direction: column;
         padding: 0;
         border-right: none;
         border-bottom: 1px solid var(--border);
         z-index: 100;
-        overflow: hidden;
       }
 
-      .nav-logo {
-        padding: 0 16px;
+      .nav-top {
+        padding: 12px 16px;
         display: flex;
         align-items: center;
-        flex-shrink: 0;
-        border-bottom: none;
+        justify-content: space-between;
       }
+
+      .nav-logo { padding: 0; }
+
+      .hamburger { display: flex; }
 
       .nav-links {
-        flex-direction: row;
-        flex: 1;
-        overflow-x: auto;
-        /* hide scrollbar */
-        scrollbar-width: none;
-        -ms-overflow-style: none;
+        display: none;
+        flex-direction: column;
+        border-top: 1px solid var(--border);
+        padding-bottom: 8px;
       }
-      .nav-links::-webkit-scrollbar { display: none; }
+      .nav-links.open { display: flex; }
 
       nav a {
-        padding: 14px 14px;
+        padding: 12px 20px;
         border-left: none;
-        border-bottom: 2px solid transparent;
-        white-space: nowrap;
-        font-size: 13px;
-        flex-shrink: 0;
+        border-bottom: none;
+        font-size: 14px;
       }
       nav a.active {
-        border-left-color: transparent;
-        border-bottom-color: var(--accent);
+        border-left: 2px solid var(--accent);
         background: rgba(79,142,247,0.07);
       }
-      nav a .icon { display: none; }
+
+      .nav-divider { margin: 4px 16px; }
+
+      .nav-setting { padding: 8px 20px; }
 
       .nav-user {
         margin-top: 0;
-        padding: 0 12px;
+        padding: 8px 20px;
         border-top: none;
-        border-left: 1px solid var(--border);
-        display: flex;
+        flex-direction: row;
         align-items: center;
-        gap: 8px;
-        flex-shrink: 0;
+        gap: 10px;
       }
-      .nav-user-name { display: none; }
-      .btn-logout { width: auto; padding: 6px 10px; font-size: 11px; }
+      .nav-user-name { font-size: 12px; }
+      .btn-logout { width: auto; }
 
       main { margin-left: 0; padding: 16px 12px; }
       #content { max-width: 100%; }
@@ -569,13 +628,37 @@
 </head>
 <body>
   <nav>
-    <div class="nav-logo">budget.</div>
-    <div class="nav-links">
+    <div class="nav-top">
+      <div class="nav-logo">budget.</div>
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+    <div class="nav-links" id="nav-links">
       <a href="#log"        data-page="log">        <span class="icon">◈</span> Log</a>
       <a href="#categories" data-page="categories"> <span class="icon">⊞</span> Categories</a>
       <a href="#charts"     data-page="charts">     <span class="icon">◎</span> Charts</a>
+      <div class="nav-divider"></div>
+      <div class="nav-setting">
+        <span class="nav-setting-label">Currency</span>
+        <select id="currency-select" class="nav-currency-select">
+          <option value="GBP">£ GBP</option>
+          <option value="USD">$ USD</option>
+          <option value="EUR">€ EUR</option>
+          <option value="NOK">kr NOK</option>
+          <option value="SEK">kr SEK</option>
+          <option value="DKK">kr DKK</option>
+          <option value="CHF">Fr CHF</option>
+          <option value="JPY">¥ JPY</option>
+          <option value="AUD">$ AUD</option>
+          <option value="CAD">$ CAD</option>
+        </select>
+      </div>
+      <div class="nav-user">
+        <div class="nav-user-name" id="nav-username"></div>
+        <button class="btn-logout" id="btn-logout">Sign out</button>
+      </div>
     </div>
-    <div class="nav-user"><div class="nav-user-name" id="nav-username"></div><button class="btn-logout" id="btn-logout">Sign out</button></div>
   </nav>
 
   <main>
@@ -589,13 +672,20 @@
     import { mount as mountCharts }     from './js/charts.js';
     import { api } from './js/api.js';
 
-    // Auth check on load — retry once to handle cookie propagation delay
+    const CURRENCY_SYMBOLS = {
+      GBP: '£', USD: '$', EUR: '€', NOK: 'kr', SEK: 'kr',
+      DKK: 'kr', CHF: 'Fr', JPY: '¥', AUD: '$', CAD: '$'
+    };
+
+    window.getCurrencySymbol = () => CURRENCY_SYMBOLS[window.userCurrency || 'GBP'] || '£';
+
     async function checkAuth() {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           const user = await api.me();
           if (user && user.id) {
             document.getElementById('nav-username').textContent = user.name || user.email;
+            window.userCurrency = user.currency || 'GBP';
             return true;
           }
         } catch (e) {
@@ -610,6 +700,27 @@
     async function main() {
       const authed = await checkAuth();
       if (!authed) return;
+
+      const currencySelect = document.getElementById('currency-select');
+      currencySelect.value = window.userCurrency;
+      currencySelect.addEventListener('change', async () => {
+        window.userCurrency = currencySelect.value;
+        await api.updateSettings({ currency: window.userCurrency });
+        window.dispatchEvent(new HashChangeEvent('hashchange'));
+      });
+
+      const hamburger = document.getElementById('hamburger');
+      const navLinks  = document.getElementById('nav-links');
+      hamburger.addEventListener('click', () => {
+        hamburger.classList.toggle('open');
+        navLinks.classList.toggle('open');
+      });
+      navLinks.querySelectorAll('a').forEach(a => {
+        a.addEventListener('click', () => {
+          hamburger.classList.remove('open');
+          navLinks.classList.remove('open');
+        });
+      });
 
       document.getElementById('btn-logout').addEventListener('click', async () => {
         await api.logout();

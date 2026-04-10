@@ -23,6 +23,7 @@ function daysInMonth(year, month) {
 }
 
 export async function mount(el) {
+  const sym = window.getCurrencySymbol ? window.getCurrencySymbol() : "£";
   const now = new Date();
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
@@ -90,7 +91,7 @@ export async function mount(el) {
       y: {
         grid: { color: '#1e2435' }, ticks: {
           color: '#5a6070', font: { family: 'DM Mono', size: 11 },
-          callback: v => `£${v.toFixed(0)}`
+          callback: v => `${sym}${v.toFixed(0)}`
         }
       },
     },
@@ -164,7 +165,7 @@ export async function mount(el) {
           },
           tooltip: {
             ...chartDefaults.plugins.tooltip,
-            callbacks: { label: ctx => ` £${ctx.parsed.y.toFixed(2)}` }
+            callbacks: { label: ctx => ` ${sym}${ctx.parsed.y.toFixed(2)}` }
           },
         },
         interaction: { mode: 'index', intersect: false },
@@ -205,7 +206,7 @@ export async function mount(el) {
           ...chartDefaults.plugins,
           tooltip: {
             ...chartDefaults.plugins.tooltip,
-            callbacks: { label: ctx => ` £${ctx.parsed.y.toFixed(2)}` }
+            callbacks: { label: ctx => ` ${sym}${ctx.parsed.y.toFixed(2)}` }
           },
         },
       },
@@ -259,7 +260,7 @@ export async function mount(el) {
           tooltip: {
             ...chartDefaults.plugins.tooltip,
             callbacks: {
-              label: ctx => ` £${ctx.parsed.toFixed(2)} (${(ctx.parsed / total * 100).toFixed(1)}%)`
+              label: ctx => ` ${sym}${ctx.parsed.toFixed(2)} (${(ctx.parsed / total * 100).toFixed(1)}%)`
             }
           },
         },
@@ -271,7 +272,7 @@ export async function mount(el) {
       <div class="legend-row">
         <span class="legend-dot" style="background:${COLORS[i]}"></span>
         <span class="legend-label">${l}</span>
-        <span class="legend-val">£${data[i].toFixed(2)}</span>
+        <span class="legend-val">${sym}${data[i].toFixed(2)}</span>
       </div>
     `).join('');
   }

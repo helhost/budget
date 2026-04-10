@@ -2,6 +2,7 @@ import { api } from './api.js';
 import { createDatePicker } from './datepicker.js';
 
 export async function mount(el) {
+  const sym = window.getCurrencySymbol ? window.getCurrencySymbol() : "£";
   const now = new Date();
   let month = now.getMonth() + 1;
   let year = now.getFullYear();
@@ -43,7 +44,7 @@ export async function mount(el) {
         <input  type="text"   id="f-date"    placeholder="Pick a date" readonly />
         <select id="f-cat"></select>
         <input  type="text"   id="f-item"    placeholder="Item" />
-        <input  type="number" id="f-amount"  placeholder="Amount (£)" step="0.01" min="0" />
+        <input  type="number" id="f-amount"  placeholder="Amount (' + sym + ')" step="0.01" min="0" />
         <input  type="text"   id="f-comment" placeholder="Comment (optional)" />
         <button id="f-submit" class="btn-primary">Add</button>
       </div>
@@ -94,20 +95,20 @@ export async function mount(el) {
         <div class="tx-summary">
           <div class="summary-item">
             <span class="summary-label">Income</span>
-            <span class="summary-val incoming">+£${income.toFixed(2)}</span>
+            <span class="summary-val incoming">+${sym}${income.toFixed(2)}</span>
           </div>
           <div class="summary-item">
             <span class="summary-label">Expenses</span>
-            <span class="summary-val outgoing">-£${expenses.toFixed(2)}</span>
+            <span class="summary-val outgoing">-${sym}${expenses.toFixed(2)}</span>
           </div>
           <div class="summary-item">
             <span class="summary-label">Saving</span>
-            <span class="summary-val saving">£${savings.toFixed(2)}</span>
+            <span class="summary-val saving">${sym}${savings.toFixed(2)}</span>
           </div>
           <div class="summary-item summary-net">
             <span class="summary-label">Net</span>
             <span class="summary-val ${net >= 0 ? 'incoming' : 'outgoing'}">
-              ${net >= 0 ? '+' : '-'}£${Math.abs(net).toFixed(2)}
+              ${net >= 0 ? '+' : '-'}${sym}${Math.abs(net).toFixed(2)}
             </span>
           </div>
         </div>
@@ -122,7 +123,7 @@ export async function mount(el) {
                 <td><span class="tag">${t.category}</span></td>
                 <td>${t.item}</td>
                 <td class="num ${t.type}">
-                  ${t.type === 'incoming' ? '+' : t.type === 'outgoing' ? '-' : ''}£${Math.abs(t.amount).toFixed(2)}
+                  ${t.type === 'incoming' ? '+' : t.type === 'outgoing' ? '-' : ''}${sym}${Math.abs(t.amount).toFixed(2)}
                 </td>
                 <td class="muted">${t.comment || '—'}</td>
                 <td><button class="btn-delete" data-id="${t.id}">✕</button></td>

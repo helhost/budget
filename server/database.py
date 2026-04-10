@@ -19,6 +19,7 @@ def init_db():
                 google_id  TEXT    NOT NULL UNIQUE,
                 email      TEXT    NOT NULL,
                 name       TEXT,
+                currency   TEXT    NOT NULL DEFAULT 'GBP',
                 created_at TEXT    DEFAULT (datetime('now'))
             )
         """)

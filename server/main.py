@@ -79,10 +79,22 @@ def me(session: Optional[str] = Cookie(default=None)):
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid session")
     with database.get_connection() as conn:
-        row = conn.execute("SELECT id, email, name FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = conn.execute("SELECT id, email, name, currency FROM users WHERE id = ?", (user_id,)).fetchone()
     if not row:
         raise HTTPException(status_code=401, detail="User not found")
     return dict(row)
+
+
+class SettingsIn(BaseModel):
+    currency: str
+
+@app.put("/user/settings")
+def update_settings(settings: SettingsIn, session: Optional[str] = Cookie(default=None)):
+    user_id = current_user(session)
+    with database.get_connection() as conn:
+        conn.execute("UPDATE users SET currency = ? WHERE id = ?", (settings.currency, user_id))
+        conn.commit()
+    return {"currency": settings.currency}
 
 
 # ── Models ────────────────────────────────────────────────────────────────
