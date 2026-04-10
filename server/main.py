@@ -6,6 +6,7 @@ from datetime import date
 from typing import Optional
 import database
 import auth
+import os
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -79,7 +80,9 @@ def me(session: Optional[str] = Cookie(default=None)):
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid session")
     with database.get_connection() as conn:
-        row = conn.execute("SELECT id, email, name, currency, theme FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = conn.execute(
+            "SELECT id, email, name, currency, theme FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
     if not row:
         raise HTTPException(status_code=401, detail="User not found")
     return dict(row)
@@ -87,7 +90,7 @@ def me(session: Optional[str] = Cookie(default=None)):
 
 class SettingsIn(BaseModel):
     currency: Optional[str] = None
-    theme: Optional[str] = None
+    theme:    Optional[str] = None
 
 @app.put("/user/settings")
 def update_settings(settings: SettingsIn, session: Optional[str] = Cookie(default=None)):
@@ -210,6 +213,36 @@ def delete_category(cat_id: int, session: Optional[str] = Cookie(default=None)):
         raise HTTPException(status_code=404, detail="Category not found")
 
 
+# ── Budgets ───────────────────────────────────────────────────────────────
+
+class BudgetItem(BaseModel):
+    category: str
+    monthly_limit: float
+
+@app.get("/budgets")
+def get_budgets(session: Optional[str] = Cookie(default=None)):
+    user_id = current_user(session)
+    with database.get_connection() as conn:
+        rows = conn.execute(
+            "SELECT category, monthly_limit FROM budgets WHERE user_id = ? ORDER BY category",
+            (user_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+@app.put("/budgets")
+def upsert_budgets(items: list[BudgetItem], session: Optional[str] = Cookie(default=None)):
+    user_id = current_user(session)
+    with database.get_connection() as conn:
+        for item in items:
+            conn.execute("""
+                INSERT INTO budgets (user_id, category, monthly_limit)
+                VALUES (?, ?, ?)
+                ON CONFLICT(user_id, category) DO UPDATE SET monthly_limit = excluded.monthly_limit
+            """, (user_id, item.category, item.monthly_limit))
+        conn.commit()
+    return {"ok": True}
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────
 
 def _row_to_dict(row):
@@ -219,7 +252,6 @@ def _row_to_dict(row):
 # ── Static files (client) — mount last so API routes take priority ────────
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import os
 
 CLIENT_DIR = os.path.join(os.path.dirname(__file__), "client")
 

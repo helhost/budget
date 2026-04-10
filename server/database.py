@@ -3,6 +3,12 @@ from pathlib import Path
 
 DB_PATH = Path("data/budget.db")
 
+DEFAULT_CATEGORIES = [
+    "Salary", "Rent", "Bills & Utilities", "Groceries", "Transport",
+    "Dining Out", "Entertainment", "Shopping", "Health & Fitness",
+    "Savings", "Investments", "Gifts", "Insurance", "Other",
+]
+
 
 def get_connection():
     conn = sqlite3.connect(DB_PATH)
@@ -25,10 +31,15 @@ def init_db():
             )
         """)
         # migrate existing DBs
-        try:
-            conn.execute("ALTER TABLE users ADD COLUMN theme TEXT NOT NULL DEFAULT 'dark'")
-        except Exception:
-            pass
+        for col, definition in [
+            ("currency", "TEXT NOT NULL DEFAULT 'GBP'"),
+            ("theme",    "TEXT NOT NULL DEFAULT 'dark'"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
+            except Exception:
+                pass
+
         conn.execute("""
             CREATE TABLE IF NOT EXISTS transactions (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,10 +61,17 @@ def init_db():
                 UNIQUE(user_id, name)
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS budgets (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id       INTEGER NOT NULL REFERENCES users(id),
+                category      TEXT    NOT NULL,
+                monthly_limit REAL    NOT NULL DEFAULT 0,
+                UNIQUE(user_id, category)
+            )
+        """)
         conn.commit()
 
-
-DEFAULT_CATEGORIES = ["Groceries", "Transport", "Entertainment", "Rent", "Shopping"]
 
 def upsert_user(google_id: str, email: str, name: str) -> int:
     with get_connection() as conn:

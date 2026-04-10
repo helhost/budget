@@ -22,7 +22,6 @@ export const api = {
   // Auth — no redirect on 401, let the caller decide
   me: () => request('GET', '/auth/me', null, false),
   logout: () => request('POST', '/auth/logout', null, false),
-
   updateSettings: (settings) => request('PUT', '/user/settings', settings),
 
   // Transactions
@@ -30,6 +29,10 @@ export const api = {
   addTransaction: (tx) => request('POST', '/transactions', tx),
   deleteTransaction: (id) => request('DELETE', `/transactions/${id}`),
   getAllTransactions: () => request('GET', '/transactions/all'),
+
+  // Budgets
+  getBudgets: () => request('GET', '/budgets'),
+  saveBudgets: (items) => request('PUT', '/budgets', items),
 
   // Categories
   getCategories: () => request('GET', '/categories'),
