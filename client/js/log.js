@@ -44,7 +44,7 @@ export async function mount(el) {
         <input  type="text"   id="f-date"    placeholder="Pick a date" readonly />
         <select id="f-cat"></select>
         <input  type="text"   id="f-item"    placeholder="Item" />
-        <input  type="number" id="f-amount"  placeholder="Amount (' + sym + ')" step="0.01" min="0" />
+        <input  type="number" id="f-amount"  placeholder="Amount (${sym})" step="0.01" min="0" />
         <input  type="text"   id="f-comment" placeholder="Comment (optional)" />
         <button id="f-submit" class="btn-primary">Add</button>
       </div>

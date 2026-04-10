@@ -23,6 +23,8 @@ export const api = {
   me: () => request('GET', '/auth/me', null, false),
   logout: () => request('POST', '/auth/logout', null, false),
 
+  updateSettings: (settings) => request('PUT', '/user/settings', settings),
+
   // Transactions
   getTransactions: (month, year) => request('GET', `/transactions?month=${month}&year=${year}`),
   addTransaction: (tx) => request('POST', '/transactions', tx),
