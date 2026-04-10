@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Budget</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f1117;
+      --surface:  #181c27;
+      --border:   #252a38;
+      --text:     #e8eaf0;
+      --muted:    #5a6070;
+      --accent:   #4f8ef7;
+      --danger:   #e05c5c;
+      --success:  #4caf7d;
+      --nav-w:    220px;
+      --font:     'DM Sans', sans-serif;
+      --mono:     'DM Mono', monospace;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      min-height: 100vh;
+      font-size: 14px;
+    }
+
+    /* ── Nav ── */
+    nav {
+      width: var(--nav-w);
+      min-height: 100vh;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 32px 0;
+      position: fixed;
+      top: 0; left: 0;
+    }
+
+    .nav-logo {
+      font-family: var(--mono);
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--accent);
+      padding: 0 24px 32px;
+      letter-spacing: -0.5px;
+    }
+
+    nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 24px;
+      color: var(--muted);
+      text-decoration: none;
+      font-weight: 400;
+      font-size: 14px;
+      transition: color 0.15s, background 0.15s;
+      border-left: 2px solid transparent;
+    }
+
+    nav a:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+    nav a.active { color: var(--text); border-left-color: var(--accent); background: rgba(79,142,247,0.07); font-weight: 500; }
+
+    nav a .icon { font-size: 16px; width: 20px; text-align: center; }
+
+    /* ── Main ── */
+    main {
+      margin-left: var(--nav-w);
+      flex: 1;
+      padding: 40px 48px;
+      max-width: 1100px;
+    }
+
+    #content {
+      max-width: 860px;
+    }
+
+    .page-header {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      margin-bottom: 28px;
+    }
+
+    .page-header h1 { grid-column: 1; }
+    .controls       { grid-column: 2; display: flex; align-items: center; gap: 12px; }
+    .page-header > div:last-child { grid-column: 3; }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+
+    h2 {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 14px;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    /* ── Form ── */
+    .form-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    input, select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+      padding: 8px 12px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+    input::placeholder { color: var(--muted); }
+    select option { background: var(--surface); }
+
+    #f-date   { width: 130px; }
+    #f-cat    { width: 150px; }
+    #f-item   { flex: 1; min-width: 120px; }
+    #f-amount { width: 120px; }
+    #f-comment { flex: 1; min-width: 120px; }
+
+    #c-name { flex: 1; }
+
+    .form-error { color: var(--danger); font-size: 12px; margin-top: 8px; min-height: 16px; }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 18px;
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 6px 14px;
+      font-family: var(--font);
+      font-size: 14px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .btn-ghost:hover { border-color: var(--accent); }
+
+    .btn-delete {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .btn-delete:hover { color: var(--danger); background: rgba(224,92,92,0.1); }
+
+    /* ── Period selector ── */
+    .controls { display: flex; align-items: center; gap: 12px; }
+    .period-label {
+      font-family: var(--mono);
+      font-size: 14px;
+      min-width: 140px;
+      text-align: center;
+      color: var(--text);
+    }
+
+    /* ── Table ── */
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      padding: 0 12px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    tfoot td { border-top: 1px solid var(--border); border-bottom: none; padding-top: 14px; }
+    .num { text-align: right; font-family: var(--mono); }
+    .muted { color: var(--muted); }
+    .tag {
+      background: rgba(79,142,247,0.12);
+      color: var(--accent);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    /* ── Category list ── */
+    .cat-list { list-style: none; }
+    .cat-list li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .cat-list li:last-child { border-bottom: none; }
+
+    /* ── States ── */
+    .loading, .empty, .error {
+      padding: 32px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .error { color: var(--danger); }
+    .form-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .form-top h2 { margin-bottom: 0; }
+
+    /* ── In/Out switch ── */
+    .type-switch {
+      display: flex;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px;
+      gap: 2px;
+    }
+    .switch-btn {
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      color: var(--muted);
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 14px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .switch-btn.active[data-type="outgoing"] { background: rgba(224,92,92,0.15);  color: #e05c5c; }
+    .switch-btn.active[data-type="incoming"] { background: rgba(76,175,125,0.15); color: #4caf7d; }
+    .switch-btn.active[data-type="saving"]   { background: rgba(230,190,80,0.15); color: #e6be50; }
+
+    /* ── Summary bar ── */
+    .tx-summary {
+      display: flex;
+      gap: 0;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .summary-item {
+      flex: 1;
+      padding: 14px 20px;
+      border-right: 1px solid var(--border);
+    }
+    .summary-item:last-child { border-right: none; }
+    .summary-net { background: rgba(255,255,255,0.02); }
+    .summary-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .summary-val {
+      font-family: var(--mono);
+      font-size: 18px;
+      font-weight: 500;
+    }
+    .incoming { color: var(--success); }
+    .outgoing { color: var(--danger); }
+    .saving   { color: #e6be50; }
+    .mono { font-family: var(--mono); font-size: 12px; }
+
+    /* ── Date Picker ── */
+    .dp-popup {
+      position: absolute;
+      z-index: 1000;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      width: 252px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .dp-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .dp-month-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .dp-hint {
+      font-size: 10px;
+      color: var(--muted);
+    }
+    .dp-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+    .dp-weekdays div {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--muted);
+      text-align: center;
+      padding: 4px 0;
+      text-transform: uppercase;
+    }
+    .dp-day {
+      text-align: center;
+      padding: 6px 0;
+      font-size: 12px;
+      font-family: var(--mono);
+      border-radius: 5px;
+      cursor: pointer;
+      color: var(--text);
+      transition: background 0.1s, color 0.1s;
+    }
+    .dp-day:hover  { background: rgba(79,142,247,0.15); color: var(--accent); }
+    .dp-day.dp-active { background: var(--accent); color: #fff; }
+
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-logo">budget.</div>
+    <a href="#log"        data-page="log">        <span class="icon">◈</span> Log</a>
+    <a href="#categories" data-page="categories"> <span class="icon">⊞</span> Categories</a>
+    <a href="#charts"     data-page="charts">     <span class="icon">◎</span> Charts</a>
+  </nav>
+
+  <main>
+    <div id="content"></div>
+  </main>
+
+  <script type="module">
+    import { register, init } from './js/router.js';
+    import { mount as mountLog }        from './js/log.js';
+    import { mount as mountCategories } from './js/categories.js';
+    import { mount as mountCharts }     from './js/charts.js';
+
+    register('log',        mountLog);
+    register('categories', mountCategories);
+    register('charts',     mountCharts);
+
+    init();
+  </script>
+</body>
+</html>

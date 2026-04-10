@@ -15,13 +15,14 @@ def init_db():
     with get_connection() as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS transactions (
-                id        INTEGER PRIMARY KEY AUTOINCREMENT,
-                date      TEXT    NOT NULL,  -- stored as YYYY-MM-DD
-                category  TEXT    NOT NULL,
-                item      TEXT    NOT NULL,
-                amount    REAL    NOT NULL,
-                comment   TEXT,
-                created_at TEXT DEFAULT (datetime('now'))
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                date       TEXT    NOT NULL,
+                category   TEXT    NOT NULL,
+                item       TEXT    NOT NULL,
+                amount     REAL    NOT NULL,
+                type       TEXT    NOT NULL DEFAULT 'outgoing',
+                comment    TEXT,
+                created_at TEXT    DEFAULT (datetime('now'))
             )
         """)
         conn.execute("""

@@ -3,18 +3,27 @@ from pydantic import BaseModel
 from datetime import date
 from typing import Optional
 import database
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Budget API")
-database.init_db()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://[::1]:3000", "http://127.0.0.1:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+database.init_db()
 
 # ── Models ────────────────────────────────────────────────────────────────
 
 class TransactionIn(BaseModel):
-    date: date            # accepts "YYYY-MM-DD"
+    date: date
     category: str
     item: str
     amount: float
+    type: str = "outgoing"   # outgoing | incoming | saving
     comment: Optional[str] = None
 
 class TransactionOut(TransactionIn):
@@ -27,8 +36,8 @@ class TransactionOut(TransactionIn):
 def create_transaction(tx: TransactionIn):
     with database.get_connection() as conn:
         cur = conn.execute(
-            "INSERT INTO transactions (date, category, item, amount, comment) VALUES (?, ?, ?, ?, ?)",
-            (tx.date.isoformat(), tx.category, tx.item, tx.amount, tx.comment),
+            "INSERT INTO transactions (date, category, item, amount, type, comment) VALUES (?, ?, ?, ?, ?, ?)",
+            (tx.date.isoformat(), tx.category, tx.item, tx.amount, tx.type, tx.comment),
         )
         conn.commit()
         row = conn.execute("SELECT * FROM transactions WHERE id = ?", (cur.lastrowid,)).fetchone()
