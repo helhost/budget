@@ -16,6 +16,7 @@ app.add_middleware(
 
 database.init_db()
 
+
 # ── Models ────────────────────────────────────────────────────────────────
 
 class TransactionIn(BaseModel):
@@ -30,7 +31,7 @@ class TransactionOut(TransactionIn):
     id: int
 
 
-# ── Routes ────────────────────────────────────────────────────────────────
+# ── Transactions ──────────────────────────────────────────────────────────
 
 @app.post("/transactions", response_model=TransactionOut, status_code=201)
 def create_transaction(tx: TransactionIn):
@@ -44,10 +45,17 @@ def create_transaction(tx: TransactionIn):
     return _row_to_dict(row)
 
 
+@app.get("/transactions/all", response_model=list[TransactionOut])
+def get_all_transactions():
+    with database.get_connection() as conn:
+        rows = conn.execute("SELECT * FROM transactions ORDER BY date").fetchall()
+    return [_row_to_dict(r) for r in rows]
+
+
 @app.get("/transactions", response_model=list[TransactionOut])
 def get_transactions(month: int, year: int):
     if not (1 <= month <= 12):
-        raise HTTPException(status_code=400, detail="month must be 1–12")
+        raise HTTPException(status_code=400, detail="month must be 1-12")
     with database.get_connection() as conn:
         rows = conn.execute(
             "SELECT * FROM transactions WHERE strftime('%m', date) = ? AND strftime('%Y', date) = ? ORDER BY date",
@@ -65,8 +73,7 @@ def delete_transaction(tx_id: int):
         raise HTTPException(status_code=404, detail="Transaction not found")
 
 
-
-# ── Categories ─────────────────────────────────────────────────────────────
+# ── Categories ────────────────────────────────────────────────────────────
 
 class CategoryIn(BaseModel):
     name: str
@@ -99,6 +106,8 @@ def delete_category(cat_id: int):
     if not deleted:
         raise HTTPException(status_code=404, detail="Category not found")
 
+
+# ── Helpers ───────────────────────────────────────────────────────────────
 
 def _row_to_dict(row):
     return {**dict(row)}

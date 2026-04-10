@@ -321,6 +321,71 @@
     .saving   { color: #e6be50; }
     .mono { font-family: var(--mono); font-size: 12px; }
 
+    /* ── Charts ── */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .widget {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 24px;
+    }
+    .widget.wide { grid-column: 1 / -1; }
+    .widget-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .widget-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .widget-sub {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: var(--mono);
+    }
+    .chart-wrap { position: relative; height: 220px; }
+    .pie-layout { display: flex; gap: 32px; align-items: center; }
+    .pie-wrap   { height: 240px; width: 240px; flex-shrink: 0; }
+
+    /* Pie legend */
+    .pie-legend { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+    }
+    .legend-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .legend-label { flex: 1; color: var(--text); }
+    .legend-val   { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+    /* Pill tabs */
+    .pill-tabs { display: flex; gap: 4px; }
+    .pill {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--muted);
+      font-family: var(--font);
+      font-size: 11px;
+      padding: 4px 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .pill:hover { color: var(--text); border-color: var(--accent); }
+    .pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
     /* ── Date Picker ── */
     .dp-popup {
       position: absolute;

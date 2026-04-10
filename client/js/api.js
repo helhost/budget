@@ -18,6 +18,7 @@ export const api = {
   getTransactions: (month, year) => request('GET', `/transactions?month=${month}&year=${year}`),
   addTransaction: (tx) => request('POST', '/transactions', tx),
   deleteTransaction: (id) => request('DELETE', `/transactions/${id}`),
+  getAllTransactions: () => request('GET', '/transactions/all'),
 
   // Categories
   getCategories: () => request('GET', '/categories'),
