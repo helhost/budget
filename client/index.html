@@ -45,6 +45,12 @@
       top: 0; left: 0;
     }
 
+    .nav-links {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
     .nav-logo {
       font-family: var(--mono);
       font-size: 16px;
@@ -350,9 +356,9 @@
       color: var(--muted);
       font-family: var(--mono);
     }
-    .chart-wrap { position: relative; height: 220px; }
+    .chart-wrap { position: relative; height: 220px; width: 100%; overflow: hidden; }
     .pie-layout { display: flex; gap: 32px; align-items: center; }
-    .pie-wrap   { height: 240px; width: 240px; flex-shrink: 0; }
+    .pie-wrap   { height: 240px; width: 240px; flex-shrink: 0; overflow: hidden; }
 
     /* Pie legend */
     .pie-legend { flex: 1; display: flex; flex-direction: column; gap: 10px; }
@@ -465,15 +471,111 @@
       transition: color 0.15s, border-color 0.15s;
     }
     .btn-logout:hover { color: var(--danger); border-color: var(--danger); }
+    /* ── Tablet: charts go single column ── */
+    @media (max-width: 900px) {
+      .charts-grid { grid-template-columns: 1fr; }
+      .widget.wide  { grid-column: 1; }
+    }
+
+    /* ── Mobile: top nav ── */
+    @media (max-width: 640px) {
+      body { flex-direction: column; }
+
+      nav {
+        width: 100%;
+        min-height: unset;
+        position: sticky;
+        top: 0;
+        flex-direction: row;
+        align-items: stretch;
+        padding: 0;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        z-index: 100;
+        overflow: hidden;
+      }
+
+      .nav-logo {
+        padding: 0 16px;
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+        border-bottom: none;
+      }
+
+      .nav-links {
+        flex-direction: row;
+        flex: 1;
+        overflow-x: auto;
+        /* hide scrollbar */
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      .nav-links::-webkit-scrollbar { display: none; }
+
+      nav a {
+        padding: 14px 14px;
+        border-left: none;
+        border-bottom: 2px solid transparent;
+        white-space: nowrap;
+        font-size: 13px;
+        flex-shrink: 0;
+      }
+      nav a.active {
+        border-left-color: transparent;
+        border-bottom-color: var(--accent);
+        background: rgba(79,142,247,0.07);
+      }
+      nav a .icon { display: none; }
+
+      .nav-user {
+        margin-top: 0;
+        padding: 0 12px;
+        border-top: none;
+        border-left: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      .nav-user-name { display: none; }
+      .btn-logout { width: auto; padding: 6px 10px; font-size: 11px; }
+
+      main { margin-left: 0; padding: 16px 12px; }
+      #content { max-width: 100%; }
+
+      .page-header { grid-template-columns: 1fr auto; margin-bottom: 16px; }
+      .page-header > div:last-child { display: none; }
+
+      .card { padding: 16px; }
+
+      .form-top { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .form-row { flex-direction: column; }
+      .form-row input,
+      .form-row select,
+      .form-row button { width: 100% !important; }
+
+      .pie-layout { flex-direction: column; align-items: center; }
+      .pie-wrap { width: 200px; height: 200px; }
+
+      .tx-summary { flex-wrap: wrap; }
+      .summary-item { min-width: 50%; border-right: none; border-bottom: 1px solid var(--border); }
+
+      table { font-size: 12px; display: block; overflow-x: auto; }
+      td, th { padding: 8px 6px; white-space: nowrap; }
+    }
+
   </style>
 </head>
 <body>
   <nav>
     <div class="nav-logo">budget.</div>
-    <a href="#log"        data-page="log">        <span class="icon">◈</span> Log</a>
-    <a href="#categories" data-page="categories"> <span class="icon">⊞</span> Categories</a>
-    <a href="#charts"     data-page="charts">     <span class="icon">◎</span> Charts</a>
-      <div class="nav-user"><div class="nav-user-name" id="nav-username"></div><button class="btn-logout" id="btn-logout">Sign out</button></div>
+    <div class="nav-links">
+      <a href="#log"        data-page="log">        <span class="icon">◈</span> Log</a>
+      <a href="#categories" data-page="categories"> <span class="icon">⊞</span> Categories</a>
+      <a href="#charts"     data-page="charts">     <span class="icon">◎</span> Charts</a>
+    </div>
+    <div class="nav-user"><div class="nav-user-name" id="nav-username"></div><button class="btn-logout" id="btn-logout">Sign out</button></div>
   </nav>
 
   <main>

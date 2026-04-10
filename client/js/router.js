@@ -14,7 +14,7 @@ function render() {
   content.innerHTML = '';
 
   // Update nav active state
-  document.querySelectorAll('nav a').forEach(a => {
+  document.querySelectorAll('nav .nav-links a').forEach(a => {
     a.classList.toggle('active', a.dataset.page === hash);
   });
 

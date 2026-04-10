@@ -72,6 +72,8 @@ export async function mount(el) {
   await loadScript(CHART_JS);
 
   const chartDefaults = {
+    responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: { display: false }, tooltip: {
         backgroundColor: '#1e2435',
