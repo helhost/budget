@@ -24,6 +24,15 @@
       --mono:     'DM Mono', monospace;
     }
 
+    /* ── Light theme ── */
+    body.theme-light {
+      --bg:      #f4f5f7;
+      --surface: #ffffff;
+      --border:  #e0e3ea;
+      --text:    #1a1d27;
+      --muted:   #8a919e;
+    }
+
     body {
       font-family: var(--font);
       background: var(--bg);
@@ -659,6 +668,10 @@
           <option value="CAD">$ CAD</option>
         </select>
       </div>
+      <div class="nav-setting">
+        <span class="nav-setting-label">Theme</span>
+        <button id="theme-toggle" class="nav-currency-select">🌙 Dark</button>
+      </div>
       <div class="nav-user">
         <div class="nav-user-name" id="nav-username"></div>
         <button class="btn-logout" id="btn-logout">Sign out</button>
@@ -691,6 +704,12 @@
           if (user && user.id) {
             document.getElementById('nav-username').textContent = user.name || user.email;
             window.userCurrency = user.currency || 'GBP';
+            // Apply saved theme
+            const themeBtn = document.getElementById('theme-toggle');
+            if (user.theme === 'light') {
+              document.body.classList.add('theme-light');
+              themeBtn.textContent = '☀️ Light';
+            }
             return true;
           }
         } catch (e) {
@@ -716,6 +735,17 @@
           console.error('Failed to save currency:', e);
         }
         window.dispatchEvent(new HashChangeEvent('hashchange'));
+      });
+
+      const themeBtn = document.getElementById('theme-toggle');
+      themeBtn.addEventListener('click', async () => {
+        const isLight = document.body.classList.toggle('theme-light');
+        themeBtn.textContent = isLight ? '☀️ Light' : '🌙 Dark';
+        try {
+          await api.updateSettings({ theme: isLight ? 'light' : 'dark' });
+        } catch(e) {
+          console.error('Failed to save theme:', e);
+        }
       });
 
       const hamburger = document.getElementById('hamburger');

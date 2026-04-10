@@ -20,9 +20,15 @@ def init_db():
                 email      TEXT    NOT NULL,
                 name       TEXT,
                 currency   TEXT    NOT NULL DEFAULT 'GBP',
+                theme      TEXT    NOT NULL DEFAULT 'dark',
                 created_at TEXT    DEFAULT (datetime('now'))
             )
         """)
+        # migrate existing DBs
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN theme TEXT NOT NULL DEFAULT 'dark'")
+        except Exception:
+            pass
         conn.execute("""
             CREATE TABLE IF NOT EXISTS transactions (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
