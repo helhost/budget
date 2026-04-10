@@ -1,15 +1,15 @@
-const BASE = 'http://localhost:8000';
+const BASE = window.location.port === '3000' ? 'http://localhost:8000' : '';
 
-async function request(method, path, body) {
+async function request(method, path, body, redirectOn401 = true) {
   const res = await fetch(BASE + path, {
     method,
-    credentials: 'include',       // send httpOnly session cookie
+    credentials: 'include',
     headers: body ? { 'Content-Type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
   });
   if (res.status === 401) {
-    window.location.href = '/login.html';
-    return;
+    if (redirectOn401) window.location.href = '/login.html';
+    throw new Error('Unauthorized');
   }
   if (!res.ok && res.status !== 204) {
     const err = await res.json().catch(() => ({}));
@@ -19,9 +19,9 @@ async function request(method, path, body) {
 }
 
 export const api = {
-  // Auth
-  me: () => request('GET', '/auth/me'),
-  logout: () => request('POST', '/auth/logout'),
+  // Auth — no redirect on 401, let the caller decide
+  me: () => request('GET', '/auth/me', null, false),
+  logout: () => request('POST', '/auth/logout', null, false),
 
   // Transactions
   getTransactions: (month, year) => request('GET', `/transactions?month=${month}&year=${year}`),

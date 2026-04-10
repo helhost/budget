@@ -589,13 +589,26 @@
     import { mount as mountCharts }     from './js/charts.js';
     import { api } from './js/api.js';
 
-    // Auth check on load
-    try {
-      const user = await api.me();
-      document.getElementById('nav-username').textContent = user.name || user.email;
-    } catch {
+    // Auth check on load — retry once to handle cookie propagation delay
+    async function checkAuth() {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const user = await api.me();
+          if (user && user.id) {
+            document.getElementById('nav-username').textContent = user.name || user.email;
+            return true;
+          }
+        } catch (e) {
+          console.warn('Auth attempt', attempt + 1, 'failed:', e.message);
+          if (attempt === 0) await new Promise(r => setTimeout(r, 500));
+        }
+      }
       window.location.href = '/login.html';
+      return false;
     }
+
+    const authed = await checkAuth();
+    if (!authed) return;
 
     document.getElementById('btn-logout').addEventListener('click', async () => {
       await api.logout();
