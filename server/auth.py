@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 GOOGLE_CLIENT_ID     = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-GOOGLE_REDIRECT_URI  = "http://localhost:8000/auth/callback"
+GOOGLE_REDIRECT_URI  = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/callback")
 JWT_SECRET           = os.getenv("JWT_SECRET", "change-me-in-production")
 JWT_ALGORITHM        = "HS256"
 JWT_EXPIRE_DAYS      = 30

@@ -50,7 +50,8 @@ async def callback(code: str):
         name=user_info.get("name", ""),
     )
     token = auth.create_jwt(user_id)
-    response = RedirectResponse("http://localhost:3000/#log")
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    response = RedirectResponse(f"{frontend_url}/#log")
     response.set_cookie(
         key="session",
         value=token,
@@ -195,3 +196,18 @@ def delete_category(cat_id: int, session: Optional[str] = Cookie(default=None)):
 
 def _row_to_dict(row):
     return {**dict(row)}
+
+
+# ── Static files (client) — mount last so API routes take priority ────────
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
+CLIENT_DIR = os.path.join(os.path.dirname(__file__), "client")
+
+if os.path.isdir(CLIENT_DIR):
+    @app.get("/")
+    def root():
+        return FileResponse(os.path.join(CLIENT_DIR, "index.html"))
+
+    app.mount("/", StaticFiles(directory=CLIENT_DIR, html=True), name="static")
