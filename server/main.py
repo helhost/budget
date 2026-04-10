@@ -52,10 +52,12 @@ async def callback(code: str):
     token = auth.create_jwt(user_id)
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
     response = RedirectResponse(f"{frontend_url}/#log")
+    is_prod = "localhost" not in frontend_url
     response.set_cookie(
         key="session",
         value=token,
         httponly=True,
+        secure=is_prod,
         samesite="lax",
         max_age=60 * 60 * 24 * 30,
     )
