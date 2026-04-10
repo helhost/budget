@@ -47,13 +47,27 @@ def init_db():
         conn.commit()
 
 
+DEFAULT_CATEGORIES = ["Groceries", "Transport", "Entertainment", "Rent", "Shopping"]
+
 def upsert_user(google_id: str, email: str, name: str) -> int:
     with get_connection() as conn:
-        conn.execute("""
+        cur = conn.execute("""
             INSERT INTO users (google_id, email, name)
             VALUES (?, ?, ?)
             ON CONFLICT(google_id) DO UPDATE SET email=excluded.email, name=excluded.name
         """, (google_id, email, name))
         conn.commit()
+
         row = conn.execute("SELECT id FROM users WHERE google_id = ?", (google_id,)).fetchone()
-        return row["id"]
+        user_id = row["id"]
+
+        # Only seed categories for brand-new users
+        if cur.lastrowid:
+            for cat in DEFAULT_CATEGORIES:
+                conn.execute(
+                    "INSERT OR IGNORE INTO categories (user_id, name) VALUES (?, ?)",
+                    (user_id, cat),
+                )
+            conn.commit()
+
+        return user_id
