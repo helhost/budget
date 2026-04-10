@@ -5,6 +5,8 @@ services:
       - "8000:8000"
     volumes:
       - ./server/data:/app/data
+    env_file:
+      - ./server/.env
 
   client:
     image: nginx:alpine

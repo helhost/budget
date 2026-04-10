@@ -14,8 +14,18 @@ def init_db():
     DB_PATH.parent.mkdir(exist_ok=True)
     with get_connection() as conn:
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                google_id  TEXT    NOT NULL UNIQUE,
+                email      TEXT    NOT NULL,
+                name       TEXT,
+                created_at TEXT    DEFAULT (datetime('now'))
+            )
+        """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS transactions (
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL REFERENCES users(id),
                 date       TEXT    NOT NULL,
                 category   TEXT    NOT NULL,
                 item       TEXT    NOT NULL,
@@ -27,8 +37,22 @@ def init_db():
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS categories (
-                id   INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT    NOT NULL UNIQUE
+                id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                name    TEXT    NOT NULL,
+                UNIQUE(user_id, name)
             )
         """)
         conn.commit()
+
+
+def upsert_user(google_id: str, email: str, name: str) -> int:
+    with get_connection() as conn:
+        conn.execute("""
+            INSERT INTO users (google_id, email, name)
+            VALUES (?, ?, ?)
+            ON CONFLICT(google_id) DO UPDATE SET email=excluded.email, name=excluded.name
+        """, (google_id, email, name))
+        conn.commit()
+        row = conn.execute("SELECT id FROM users WHERE google_id = ?", (google_id,)).fetchone()
+        return row["id"]

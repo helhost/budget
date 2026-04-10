@@ -438,6 +438,33 @@
     .dp-day:hover  { background: rgba(79,142,247,0.15); color: var(--accent); }
     .dp-day.dp-active { background: var(--accent); color: #fff; }
 
+
+    .nav-user {
+      margin-top: auto;
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+    }
+    .nav-user-name {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .btn-logout {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      font-family: var(--font);
+      font-size: 12px;
+      padding: 6px 12px;
+      cursor: pointer;
+      width: 100%;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .btn-logout:hover { color: var(--danger); border-color: var(--danger); }
   </style>
 </head>
 <body>
@@ -446,6 +473,7 @@
     <a href="#log"        data-page="log">        <span class="icon">◈</span> Log</a>
     <a href="#categories" data-page="categories"> <span class="icon">⊞</span> Categories</a>
     <a href="#charts"     data-page="charts">     <span class="icon">◎</span> Charts</a>
+      <div class="nav-user"><div class="nav-user-name" id="nav-username"></div><button class="btn-logout" id="btn-logout">Sign out</button></div>
   </nav>
 
   <main>
@@ -457,6 +485,20 @@
     import { mount as mountLog }        from './js/log.js';
     import { mount as mountCategories } from './js/categories.js';
     import { mount as mountCharts }     from './js/charts.js';
+    import { api } from './js/api.js';
+
+    // Auth check on load
+    try {
+      const user = await api.me();
+      document.getElementById('nav-username').textContent = user.name || user.email;
+    } catch {
+      window.location.href = '/login.html';
+    }
+
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+      await api.logout();
+      window.location.href = '/login.html';
+    });
 
     register('log',        mountLog);
     register('categories', mountCategories);
