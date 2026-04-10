@@ -607,19 +607,23 @@
       return false;
     }
 
-    const authed = await checkAuth();
-    if (!authed) return;
+    async function main() {
+      const authed = await checkAuth();
+      if (!authed) return;
 
-    document.getElementById('btn-logout').addEventListener('click', async () => {
-      await api.logout();
-      window.location.href = '/login.html';
-    });
+      document.getElementById('btn-logout').addEventListener('click', async () => {
+        await api.logout();
+        window.location.href = '/login.html';
+      });
 
-    register('log',        mountLog);
-    register('categories', mountCategories);
-    register('charts',     mountCharts);
+      register('log',        mountLog);
+      register('categories', mountCategories);
+      register('charts',     mountCharts);
 
-    init();
+      init();
+    }
+
+    main();
   </script>
 </body>
 </html>
