@@ -156,7 +156,7 @@ def get_transactions(month: int, year: int, session: Optional[str] = Cookie(defa
         raise HTTPException(status_code=400, detail="month must be 1-12")
     with database.get_connection() as conn:
         rows = conn.execute(
-            "SELECT * FROM transactions WHERE user_id = ? AND strftime('%m', date) = ? AND strftime('%Y', date) = ? ORDER BY date",
+            "SELECT * FROM transactions WHERE user_id = ? AND strftime('%m', date) = ? AND strftime('%Y', date) = ? ORDER BY date DESC",
             (user_id, f"{month:02d}", str(year)),
         ).fetchall()
     return [_row_to_dict(r) for r in rows]
