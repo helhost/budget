@@ -296,7 +296,6 @@ tfoot td { border-top: 1px solid var(--border); border-bottom: none; padding-top
 }
 .cat-list li:last-child { border-bottom: none; }
 
-
 /* ── delete confirmation ── */
 .delete-confirm-wrap { display: flex; align-items: center; }
 .delete-confirm      { display: flex; align-items: center; gap: 6px; }
@@ -704,9 +703,7 @@ body.login {
   margin-bottom: 12px;
   border-radius: 0 4px 4px 0;
 }
-
 .plan-group:last-child { border-bottom: none; margin-bottom: 0; }
-.plan-group:last-child { border-bottom: none; }
 
 .plan-group-header {
   display: flex;
@@ -748,20 +745,58 @@ body.login {
 .plan-band-form .form-row { margin-bottom: 6px; }
 .plan-taper-row { align-items: center; }
 
-/* ── Summary card ── */
+.plan-taxable-note {
+  font-size: 12px;
+  padding: 6px 0 10px;
+  color: var(--muted);
+}
+.plan-taxable-val {
+  font-family: var(--mono);
+  font-weight: 500;
+  color: var(--text);
+}
 
-.plan-summary-card {
-  margin-top: 0;
-}
+/* ── Plan summary card ── */
+
+.plan-summary-card { margin-top: 0; }
+
 .plan-summary-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
 }
+
+.plan-summary-row-2 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--border);
+}
+
 .plan-summary-item {
-  flex: 1;
-  min-width: 140px;
   padding: 14px 20px;
   border-right: 1px solid var(--border);
 }
 .plan-summary-item:last-child { border-right: none; }
+
+/* ── Plan pension ── */
+
+.plan-pension-subheader {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  padding: 10px 0 4px;
+}
+
+@media (max-width: 640px) {
+  .plan-summary-row,
+  .plan-summary-row-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .plan-summary-item {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .plan-summary-item:last-child { border-bottom: none; }
+}

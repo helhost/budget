@@ -48,28 +48,34 @@ function buildFreqSelect(defaultVal = 'Monthly') {
   return sel;
 }
 
+// ── pension calculation ───────────────────────────────────────────────────────
+
+function calcPensionItem(item, grossIncome) {
+  if (item.calc_type === 'percentage') {
+    const basis = (item.type === 'employer' && item.salary_basis != null)
+      ? item.salary_basis
+      : grossIncome;
+    return basis * (item.value / 100);
+  }
+  return item.value; // flat amount per year
+}
+
 // ── tax calculation ───────────────────────────────────────────────────────────
 //
-//  is_allowance = true  → subtract band_to (after taper) from gross income
-//                         to produce taxableIncome before applying tax bands
-//  is_allowance = false → treat as a normal band applied to grossIncome directly
-//                         (including zero-rate bands like NI free tier)
+//  is_allowance = true  → subtract from gross to get taxable income
+//  is_allowance = false → normal band, applied to baseIncome
 //
-//  Tax bands (is_allowance=false) are applied to:
-//    - grossIncome directly, using band_from / band_to as absolute thresholds
-//
-//  taxableIncome is exposed separately so salary sacrifice / pension can reduce it later.
+//  Groups with allowances  → bands applied to taxableIncome
+//  Groups without allowances → bands applied to grossIncome (e.g. NI)
 
 function calculateGroupTax(bands, grossIncome) {
   const sorted = [...bands].sort((a, b) => a.order_index - b.order_index);
 
-  // Step 1 — allowances (is_allowance=true only)
   let totalAllowance = 0;
   const allowanceBreakdown = [];
 
   for (const band of sorted) {
     if (!band.is_allowance) continue;
-
     let effectiveCeiling = band.band_to ?? 0;
     if (band.taper_start !== null && grossIncome > band.taper_start) {
       const excess = grossIncome - band.taper_start;
@@ -80,18 +86,14 @@ function calculateGroupTax(bands, grossIncome) {
     allowanceBreakdown.push({ band, effectiveCeiling });
   }
 
-  // taxableIncome = gross minus allowances
-  // (salary sacrifice / pension will further reduce this later)
   const taxableIncome = Math.max(0, grossIncome - totalAllowance);
-
-  // Step 2 — non-allowance bands applied to taxableIncome if group has allowances, grossIncome otherwise
   const baseIncome = totalAllowance > 0 ? taxableIncome : grossIncome;
+
   let totalTax = 0;
   const taxBreakdown = [];
 
   for (const band of sorted) {
     if (band.is_allowance) continue;
-
     const from = band.band_from;
     const to = band.band_to !== null ? band.band_to : Infinity;
     const slice = Math.max(0, Math.min(baseIncome, to) - from);
@@ -166,16 +168,19 @@ function buildInlineForm(fields, onSubmit, onCancel) {
 export async function mount(el_) {
   const sym = window.getCurrencySymbol ? window.getCurrencySymbol() : '£';
 
+  // All containers — summary is first in DOM
+  const summaryEl = el('div', { className: 'plan-summary-card card' });
   const incomeListEl = el('div');
   const incomeTotalsEl = el('div', { className: 'plan-totals' });
   const taxSectionEl = el('div');
-  const summaryEl = el('div', { className: 'plan-summary-card card' });
+  const pensionEl = el('div');
 
   el_.append(
     el('div', { className: 'page-header' }, el('h1', {}, 'Plan')),
+    summaryEl,                    // ← summary at top
     buildIncomeCard(),
+    pensionEl,
     taxSectionEl,
-    summaryEl,
   );
 
   // ── Income card ───────────────────────────────────────────────────────────
@@ -189,11 +194,7 @@ export async function mount(el_) {
     const formError = el('span', { className: 'plan-form-error' });
 
     const addForm = el('div', { className: 'add-form-inline' },
-      el('div', { className: 'form-row' },
-        nameInput,
-        amountInput,
-        freqSel, submitBtn, cancelBtn,
-      ),
+      el('div', { className: 'form-row' }, nameInput, amountInput, freqSel, submitBtn, cancelBtn),
       formError,
     );
     addForm.style.display = 'none';
@@ -231,12 +232,157 @@ export async function mount(el_) {
     );
   }
 
+  // ── Pension card ──────────────────────────────────────────────────────────
+
+  function renderPensionCard(items, grossIncome) {
+    const sacrificeItems = items.filter(i => i.type === 'sacrifice');
+    const employerItems = items.filter(i => i.type === 'employer');
+
+    // ── add sacrifice form ────────────────────────────────────────────────
+    const addSacrificeBtn = el('button', { className: 'btn-ghost plan-add-btn' }, '+ Add Sacrifice');
+    const { formEl: sacrificeForm, inputs: sacrificeInputs } = buildInlineForm(
+      [
+        { key: 'name', placeholder: 'e.g. Pension', width: '150px' },
+        { key: 'value', inputType: 'number', placeholder: '% of gross', step: '0.01', min: '0', width: '110px' },
+        { key: 'or', inputType: 'number', placeholder: `Or flat ${sym}/yr`, step: '1', min: '0', width: '140px' },
+      ],
+      async (inputs) => {
+        const name = inputs.name.value.trim();
+        const pct = parseFloat(inputs.value.value);
+        const flat = parseFloat(inputs.or.value);
+        if (!name) return 'Name is required.';
+        const useFlat = !isNaN(flat) && flat > 0 && isNaN(pct);
+        const usePct = !isNaN(pct) && pct > 0;
+        if (!usePct && !useFlat) return 'Enter a % or a flat amount.';
+        const calc_type = (usePct && !useFlat) ? 'percentage' : 'amount';
+        const value = calc_type === 'percentage' ? pct : flat;
+        try {
+          await api.addPension({ name, type: 'sacrifice', calc_type, value, salary_basis: null });
+          await load();
+        } catch (e) { return e.message; }
+      },
+      () => { addSacrificeBtn.style.display = ''; }
+    );
+
+    addSacrificeBtn.addEventListener('click', () => {
+      employerForm.style.display = 'none'; addEmployerBtn.style.display = '';
+      sacrificeForm.style.display = ''; addSacrificeBtn.style.display = 'none';
+      sacrificeInputs.name.focus();
+    });
+
+    // ── add employer form ─────────────────────────────────────────────────
+    const addEmployerBtn = el('button', { className: 'btn-ghost plan-add-btn' }, '+ Add Employer');
+    const { formEl: employerForm, inputs: employerInputs } = buildInlineForm(
+      [
+        { key: 'name', placeholder: 'e.g. Employer pension', width: '160px' },
+        { key: 'value', inputType: 'number', placeholder: '% of salary', step: '0.01', min: '0', width: '110px' },
+        { key: 'basis', inputType: 'number', placeholder: `Salary basis ${sym} (if % based)`, step: '1', min: '0', width: '200px' },
+        { key: 'or', inputType: 'number', placeholder: `Or flat ${sym}/yr`, step: '1', min: '0', width: '140px' },
+      ],
+      async (inputs) => {
+        const name = inputs.name.value.trim();
+        const pct = parseFloat(inputs.value.value);
+        const basis = parseFloat(inputs.basis.value);
+        const flat = parseFloat(inputs.or.value);
+        if (!name) return 'Name is required.';
+        const usePct = !isNaN(pct) && pct > 0;
+        const useFlat = !isNaN(flat) && flat > 0;
+        if (!usePct && !useFlat) return 'Enter a % or a flat amount.';
+        if (usePct && !useFlat && isNaN(basis)) return 'Enter a salary basis for % calculation.';
+        const calc_type = (usePct && !useFlat) ? 'percentage' : 'amount';
+        const value = calc_type === 'percentage' ? pct : flat;
+        const salary_basis = calc_type === 'percentage' ? basis : null;
+        try {
+          await api.addPension({ name, type: 'employer', calc_type, value, salary_basis });
+          await load();
+        } catch (e) { return e.message; }
+      },
+      () => { addEmployerBtn.style.display = ''; }
+    );
+
+    addEmployerBtn.addEventListener('click', () => {
+      sacrificeForm.style.display = 'none'; addSacrificeBtn.style.display = '';
+      employerForm.style.display = ''; addEmployerBtn.style.display = 'none';
+      employerInputs.name.focus();
+    });
+
+    // ── render rows ───────────────────────────────────────────────────────
+    function pensionRow(item) {
+      const yearly = calcPensionItem(item, grossIncome);
+      const valueStr = item.calc_type === 'percentage'
+        ? item.value + '%' + (item.type === 'employer' && item.salary_basis
+          ? ` of ${fmt(item.salary_basis, sym)}`
+          : ' of gross')
+        : fmt(item.value, sym) + ' /yr';
+
+      const delBtn = el('button', { className: 'btn-delete' }, '✕');
+      delBtn.addEventListener('click', async () => { await api.deletePension(item.id); await load(); });
+
+      const amtClass = item.type === 'sacrifice' ? 'outgoing' : 'incoming';
+      const prefix = item.type === 'sacrifice' ? '−' : '+';
+
+      return el('div', { className: 'plan-row' },
+        el('span', { className: 'plan-row-name' }, item.name),
+        item.calc_type === 'percentage' ? el('span', { className: 'muted', style: { fontSize: '12px' } }, valueStr) : null,
+        el('span', { className: 'plan-row-yearly ' + amtClass },
+          prefix + fmt(yearly, sym) + ' /yr'
+        ),
+        delBtn,
+      );
+    }
+
+    const sacrificeRows = sacrificeItems.map(pensionRow);
+    const employerRows = employerItems.map(pensionRow);
+
+    const totalSacrifice = sacrificeItems.reduce((s, i) => s + calcPensionItem(i, grossIncome), 0);
+    const totalEmployer = employerItems.reduce((s, i) => s + calcPensionItem(i, grossIncome), 0);
+
+    const children = [];
+
+    if (sacrificeRows.length) {
+      children.push(
+        el('div', { className: 'plan-pension-subheader muted' }, 'Salary Sacrifice'),
+        el('div', { className: 'plan-list' }, ...sacrificeRows),
+      );
+    }
+    if (employerRows.length) {
+      children.push(
+        el('div', { className: 'plan-pension-subheader muted' }, 'Employer Contributions'),
+        el('div', { className: 'plan-list' }, ...employerRows),
+      );
+    }
+
+    const totalPension = totalSacrifice + totalEmployer;
+    if (totalPension > 0) {
+      children.push(
+        el('div', { className: 'plan-totals-row' },
+          el('span', { className: 'plan-totals-label' }, 'Total Pension'),
+          el('span', { className: 'plan-totals-val' }, fmt(totalPension, sym)),
+        )
+      );
+    }
+
+    pensionEl.replaceChildren(
+      el('div', { className: 'card' },
+        el('div', { className: 'plan-section-header' },
+          el('h2', {}, 'Pension'),
+          el('div', { className: 'plan-band-btn-bar', style: { margin: '0' } },
+            addSacrificeBtn, addEmployerBtn,
+          ),
+        ),
+        ...children,
+        sacrificeForm,
+        employerForm,
+      )
+    );
+  }
+
   // ── Tax & Deductions section ──────────────────────────────────────────────
 
-  function renderTaxSection(groups, grossIncome) {
+  function renderTaxSection(groups, adjustedGross) {
     const addGroupForm = buildAddGroupForm();
     const addGroupBtn = el('button', { className: 'btn-ghost plan-add-btn', id: 'add-group-btn' }, '+ Add Group');
-    const groupCards = groups.map(g => buildGroupCard(g, grossIncome));
+    const groupCards = groups.map(g => buildGroupCard(g, adjustedGross));
 
     taxSectionEl.replaceChildren(
       el('div', { className: 'card' },
@@ -292,13 +438,10 @@ export async function mount(el_) {
     return form;
   }
 
-  // ── Group card ────────────────────────────────────────────────────────────
-
-  function buildGroupCard(group, grossIncome) {
+  function buildGroupCard(group, adjustedGross) {
     const { totalTax, totalAllowance, taxableIncome, allowanceBreakdown, taxBreakdown } =
-      calculateGroupTax(group.bands, grossIncome);
+      calculateGroupTax(group.bands, adjustedGross);
 
-    // ── allowance rows (is_allowance=true) ───────────────────────────────
     const allowanceRows = allowanceBreakdown.map(({ band, effectiveCeiling }) => {
       const isTapered = band.taper_start !== null;
       const delBtn = el('button', { className: 'btn-delete' }, '✕');
@@ -322,18 +465,16 @@ export async function mount(el_) {
       );
     });
 
-    // ── taxable income note ───────────────────────────────────────────────
     const taxableNote = totalAllowance > 0
       ? el('div', { className: 'plan-taxable-note' },
         el('span', { className: 'muted' }, 'Taxable income: '),
         el('span', { className: 'plan-taxable-val' }, fmt(taxableIncome, sym)),
         el('span', { className: 'muted' },
-          ` (${fmt(grossIncome, sym)} − ${fmt(totalAllowance, sym)} allowance)`
+          ` (${fmt(adjustedGross, sym)} − ${fmt(totalAllowance, sym)} allowance)`
         ),
       )
       : null;
 
-    // ── tax band rows (is_allowance=false) ───────────────────────────────
     const taxBandRows = taxBreakdown.map(({ band, slice, tax }) => {
       const to = band.band_to !== null ? fmt(band.band_to, sym) : '∞';
       const delBtn = el('button', { className: 'btn-delete' }, '✕');
@@ -354,14 +495,13 @@ export async function mount(el_) {
       );
     });
 
-    // ── Add Band form ─────────────────────────────────────────────────────
     const addBandBtn = el('button', { className: 'btn-ghost plan-add-btn' }, '+ Add Band');
     const { formEl: bandForm, inputs: bandInputs } = buildInlineForm(
       [
         { key: 'name', placeholder: 'Band name', width: '150px' },
         { key: 'rate', inputType: 'number', placeholder: 'Rate %', step: '0.01', min: '0', max: '100', width: '80px' },
         { key: 'from', inputType: 'number', placeholder: `From ${sym}`, step: '1', min: '0', width: '100px' },
-        { key: 'to', inputType: 'number', placeholder: `To (blank = ∞) ${sym}`, step: '1', min: '0', width: '140px' },
+        { key: 'to', inputType: 'number', placeholder: `To (blank = ∞) ${sym}`, step: '1', min: '0', width: '155px' },
       ],
       async (inputs) => {
         const name = inputs.name.value.trim();
@@ -374,8 +514,7 @@ export async function mount(el_) {
           await api.createTaxBand(group.id, {
             name, rate, band_from: from, band_to: to,
             taper_start: null, taper_rate: null, taper_floor: null,
-            is_allowance: 0,
-            order_index: group.bands.length,
+            is_allowance: 0, order_index: group.bands.length,
           });
           await load();
         } catch (e) { return e.message; }
@@ -389,7 +528,6 @@ export async function mount(el_) {
       bandInputs.name.focus();
     });
 
-    // ── Add Allowance form ────────────────────────────────────────────────
     const addAllowanceBtn = el('button', { className: 'btn-ghost plan-add-btn' }, '+ Add Allowance');
     const { formEl: allowanceForm, inputs: allowanceInputs } = buildInlineForm(
       [
@@ -424,7 +562,6 @@ export async function mount(el_) {
       allowanceInputs.name.focus();
     });
 
-    // ── delete group ──────────────────────────────────────────────────────
     const delGroupBtn = el('button', { className: 'btn-delete', style: { marginLeft: '8px' } }, '✕');
     delGroupBtn.addEventListener('click', async () => { await api.deleteTaxGroup(group.id); await load(); });
 
@@ -447,27 +584,42 @@ export async function mount(el_) {
 
   // ── Summary card ──────────────────────────────────────────────────────────
 
-  function renderSummary(grossIncome, groups) {
-    // taxableIncome is gross here — salary sacrifice / pension reduce it later
-    const taxableIncome = grossIncome;
+  function renderSummary(grossIncome, totalSacrifice, totalEmployer, groups) {
+    const adjustedGross = grossIncome - totalSacrifice;
+    const totalPension = totalSacrifice + totalEmployer;
 
     const totalTax = groups.reduce((sum, g) => {
-      const { totalTax } = calculateGroupTax(g.bands, grossIncome);
+      const { totalTax } = calculateGroupTax(g.bands, adjustedGross);
       return sum + totalTax;
     }, 0);
 
-    const netYearly = grossIncome - totalTax;
-    const netMonthly = netYearly / 12;
+    const netAfterTax = adjustedGross - totalTax;
+    // totalPackage = cash in hand + everything going into pension pot
+    const totalPackage = netAfterTax + totalPension;
+    const monthlyNet = netAfterTax / 12;
+    const monthlyPackage = totalPackage / 12;
 
-    summaryEl.replaceChildren(
-      el('div', { className: 'plan-summary-row' },
-        summaryItem('Gross Income', fmt(grossIncome, sym) + ' /yr', ''),
-        summaryItem('Taxable Income', fmt(taxableIncome, sym) + ' /yr', 'muted'),
-        summaryItem('Total Deductions', '−' + fmt(totalTax, sym) + ' /yr', 'outgoing'),
-        summaryItem('Net Take-home', fmt(netYearly, sym) + ' /yr', 'incoming'),
-        summaryItem('Monthly Net', fmt(netMonthly, sym) + ' /mo', 'incoming'),
-      )
+    // Row 1 — always shown
+    const row1 = el('div', { className: 'plan-summary-row' },
+      summaryItem('Gross Income', fmt(grossIncome, sym) + ' /yr', ''),
+      summaryItem('Total Deductions', '−' + fmt(totalTax, sym) + ' /yr', 'outgoing'),
+      summaryItem('Net Take-home', fmt(netAfterTax, sym) + ' /yr', 'incoming'),
+      summaryItem('Monthly Net', fmt(monthlyNet, sym) + ' /mo', 'incoming'),
     );
+
+    const children = [row1];
+
+    // Row 2 — only when pension is set up
+    if (totalPension > 0) {
+      const row2 = el('div', { className: 'plan-summary-row plan-summary-row-2' },
+        summaryItem('Total Pension', fmt(totalPension, sym) + ' /yr', ''),
+        summaryItem('Total Package', fmt(totalPackage, sym) + ' /yr', 'incoming'),
+        summaryItem('Monthly Package', fmt(monthlyPackage, sym) + ' /mo', 'incoming'),
+      );
+      children.push(row2);
+    }
+
+    summaryEl.replaceChildren(...children);
   }
 
   function summaryItem(label, value, cls) {
@@ -523,16 +675,25 @@ export async function mount(el_) {
   // ── load ──────────────────────────────────────────────────────────────────
 
   async function load() {
-    const [incomes, groups] = await Promise.all([
+    const [incomes, groups, pensionItems] = await Promise.all([
       api.getPlanIncome(),
       api.getTaxGroups(),
+      api.getPension(),
     ]);
 
     const grossIncome = incomes.reduce((s, i) => s + toYearly(i.amount, i.frequency), 0);
+    const totalSacrifice = pensionItems
+      .filter(i => i.type === 'sacrifice')
+      .reduce((s, i) => s + calcPensionItem(i, grossIncome), 0);
+    const totalEmployer = pensionItems
+      .filter(i => i.type === 'employer')
+      .reduce((s, i) => s + calcPensionItem(i, grossIncome), 0);
+    const adjustedGross = grossIncome - totalSacrifice;
 
     renderIncomeList(incomes);
-    renderTaxSection(groups, grossIncome);
-    renderSummary(grossIncome, groups);
+    renderPensionCard(pensionItems, grossIncome);
+    renderTaxSection(groups, adjustedGross);
+    renderSummary(grossIncome, totalSacrifice, totalEmployer, groups);
   }
 
   await load();

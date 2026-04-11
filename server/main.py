@@ -411,6 +411,51 @@ def delete_tax_band(band_id: int, session: Optional[str] = Cookie(default=None))
         conn.commit()
 
 
+# ── Plan — Pension ────────────────────────────────────────────────────────────
+
+class PensionItemIn(BaseModel):
+    name: str
+    type: str = "sacrifice"        # 'sacrifice' | 'employer'
+    calc_type: str = "percentage"  # 'percentage' | 'amount'
+    value: float
+    salary_basis: Optional[float] = None  # required when type=employer & calc_type=percentage
+
+class PensionItemOut(PensionItemIn):
+    id: int
+
+@app.get("/plan/pension", response_model=list[PensionItemOut])
+def get_pension(session: Optional[str] = Cookie(default=None)):
+    user_id = current_user(session)
+    with database.get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM plan_pension WHERE user_id = ? ORDER BY id", (user_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+@app.post("/plan/pension", response_model=PensionItemOut, status_code=201)
+def add_pension(item: PensionItemIn, session: Optional[str] = Cookie(default=None)):
+    user_id = current_user(session)
+    with database.get_connection() as conn:
+        cur = conn.execute(
+            "INSERT INTO plan_pension (user_id, name, type, calc_type, value, salary_basis) VALUES (?,?,?,?,?,?)",
+            (user_id, item.name, item.type, item.calc_type, item.value, item.salary_basis),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM plan_pension WHERE id = ?", (cur.lastrowid,)).fetchone()
+    return dict(row)
+
+@app.delete("/plan/pension/{item_id}", status_code=204)
+def delete_pension(item_id: int, session: Optional[str] = Cookie(default=None)):
+    user_id = current_user(session)
+    with database.get_connection() as conn:
+        deleted = conn.execute(
+            "DELETE FROM plan_pension WHERE id = ? AND user_id = ?", (item_id, user_id)
+        ).rowcount
+        conn.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Not found")
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _row_to_dict(row):

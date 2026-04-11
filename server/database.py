@@ -194,9 +194,21 @@ def init_db():
                 order_index  INTEGER NOT NULL DEFAULT 0
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS plan_pension (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id       INTEGER NOT NULL REFERENCES users(id),
+                name          TEXT    NOT NULL,
+                type          TEXT    NOT NULL DEFAULT 'sacrifice',
+                calc_type     TEXT    NOT NULL DEFAULT 'percentage',
+                value         REAL    NOT NULL,
+                salary_basis  REAL,
+                created_at    TEXT
+            )
+        """)
         conn.commit()
 
-        # migrate existing plan_tax_bands tables that lack is_allowance
+        # migrations
         try:
             conn.execute("ALTER TABLE plan_tax_bands ADD COLUMN is_allowance INTEGER NOT NULL DEFAULT 0")
             conn.commit()
@@ -222,7 +234,6 @@ def upsert_user(google_id: str, email: str, name: str) -> int:
                 (user_id, cat),
             )
 
-        # Seed default tax groups if user has none
         existing = conn.execute(
             "SELECT COUNT(*) FROM plan_tax_groups WHERE user_id = ?", (user_id,)
         ).fetchone()[0]

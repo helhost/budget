@@ -53,4 +53,9 @@ export const api = {
   createTaxBand: (groupId, band) => request('POST', `/plan/tax/groups/${groupId}/bands`, band),
   updateTaxBand: (bandId, band) => request('PUT', `/plan/tax/bands/${bandId}`, band),
   deleteTaxBand: (bandId) => request('DELETE', `/plan/tax/bands/${bandId}`),
+
+  // Plan — Pension
+  getPension: () => request('GET', '/plan/pension'),
+  addPension: (item) => request('POST', '/plan/pension', item),
+  deletePension: (id) => request('DELETE', `/plan/pension/${id}`),
 };
