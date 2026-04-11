@@ -11,7 +11,7 @@ export function navigate(hash) {
 function render() {
   const hash = window.location.hash.replace('#', '') || 'log';
   const content = document.getElementById('content');
-  content.innerHTML = '';
+  content.replaceChildren();
 
   // Update nav active state
   document.querySelectorAll('nav .nav-links a').forEach(a => {
