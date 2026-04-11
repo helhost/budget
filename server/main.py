@@ -288,9 +288,6 @@ class TaxGroupIn(BaseModel):
     name: str
     order_index: int = 0
 
-class TaxGroupOut(TaxGroupIn):
-    id: int
-
 class TaxBandIn(BaseModel):
     name: str
     rate: float
@@ -299,6 +296,7 @@ class TaxBandIn(BaseModel):
     taper_start: Optional[float] = None
     taper_rate: Optional[float] = None
     taper_floor: Optional[float] = None
+    is_allowance: int = 0
     order_index: int = 0
 
 class TaxBandOut(TaxBandIn):
@@ -351,7 +349,6 @@ def delete_tax_group(group_id: int, session: Optional[str] = Cookie(default=None
 def create_tax_band(group_id: int, band: TaxBandIn, session: Optional[str] = Cookie(default=None)):
     user_id = current_user(session)
     with database.get_connection() as conn:
-        # verify group belongs to user
         g = conn.execute(
             "SELECT id FROM plan_tax_groups WHERE id = ? AND user_id = ?", (group_id, user_id)
         ).fetchone()
@@ -360,11 +357,12 @@ def create_tax_band(group_id: int, band: TaxBandIn, session: Optional[str] = Coo
         cur = conn.execute("""
             INSERT INTO plan_tax_bands
                 (group_id, name, rate, band_from, band_to,
-                 taper_start, taper_rate, taper_floor, order_index)
-            VALUES (?,?,?,?,?,?,?,?,?)
+                 taper_start, taper_rate, taper_floor, is_allowance, order_index)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
         """, (
             group_id, band.name, band.rate, band.band_from, band.band_to,
-            band.taper_start, band.taper_rate, band.taper_floor, band.order_index,
+            band.taper_start, band.taper_rate, band.taper_floor,
+            band.is_allowance, band.order_index,
         ))
         conn.commit()
         row = conn.execute("SELECT * FROM plan_tax_bands WHERE id = ?", (cur.lastrowid,)).fetchone()
@@ -375,7 +373,6 @@ def create_tax_band(group_id: int, band: TaxBandIn, session: Optional[str] = Coo
 def update_tax_band(band_id: int, band: TaxBandIn, session: Optional[str] = Cookie(default=None)):
     user_id = current_user(session)
     with database.get_connection() as conn:
-        # verify ownership via group
         row = conn.execute("""
             SELECT b.id FROM plan_tax_bands b
             JOIN plan_tax_groups g ON g.id = b.group_id
@@ -386,12 +383,13 @@ def update_tax_band(band_id: int, band: TaxBandIn, session: Optional[str] = Cook
         conn.execute("""
             UPDATE plan_tax_bands SET
                 name=?, rate=?, band_from=?, band_to=?,
-                taper_start=?, taper_rate=?, taper_floor=?, order_index=?
+                taper_start=?, taper_rate=?, taper_floor=?,
+                is_allowance=?, order_index=?
             WHERE id=?
         """, (
             band.name, band.rate, band.band_from, band.band_to,
             band.taper_start, band.taper_rate, band.taper_floor,
-            band.order_index, band_id,
+            band.is_allowance, band.order_index, band_id,
         ))
         conn.commit()
         updated = conn.execute("SELECT * FROM plan_tax_bands WHERE id = ?", (band_id,)).fetchone()

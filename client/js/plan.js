@@ -7,7 +7,6 @@ function el(tag, attrs = {}, ...children) {
   for (const [k, v] of Object.entries(attrs)) {
     if (k === 'className') node.className = v;
     else if (k === 'style') {
-      // accept both string ('width:80px') and object ({ width: '80px' })
       if (typeof v === 'string') node.setAttribute('style', v);
       else Object.assign(node.style, v);
     }
@@ -51,22 +50,26 @@ function buildFreqSelect(defaultVal = 'Monthly') {
 
 // ── tax calculation ───────────────────────────────────────────────────────────
 //
-//  Step 1 — Allowances (rate=0 bands, may have taper)
-//    effectiveCeiling = band_to - max(0, (gross - taper_start) * taper_rate)
-//    taxableIncome    = gross - sum(effectiveCeilings)
+//  is_allowance = true  → subtract band_to (after taper) from gross income
+//                         to produce taxableIncome before applying tax bands
+//  is_allowance = false → treat as a normal band applied to grossIncome directly
+//                         (including zero-rate bands like NI free tier)
 //
-//  Step 2 — Tax bands applied to taxableIncome
-//    bands stored relative to taxableIncome (0→37700, 37700→112570, etc.)
+//  Tax bands (is_allowance=false) are applied to:
+//    - grossIncome directly, using band_from / band_to as absolute thresholds
+//
+//  taxableIncome is exposed separately so salary sacrifice / pension can reduce it later.
 
 function calculateGroupTax(bands, grossIncome) {
   const sorted = [...bands].sort((a, b) => a.order_index - b.order_index);
 
-  // Step 1 — allowances
+  // Step 1 — allowances (is_allowance=true only)
   let totalAllowance = 0;
   const allowanceBreakdown = [];
 
   for (const band of sorted) {
-    if (band.rate !== 0) continue;
+    if (!band.is_allowance) continue;
+
     let effectiveCeiling = band.band_to ?? 0;
     if (band.taper_start !== null && grossIncome > band.taper_start) {
       const excess = grossIncome - band.taper_start;
@@ -77,17 +80,21 @@ function calculateGroupTax(bands, grossIncome) {
     allowanceBreakdown.push({ band, effectiveCeiling });
   }
 
+  // taxableIncome = gross minus allowances
+  // (salary sacrifice / pension will further reduce this later)
   const taxableIncome = Math.max(0, grossIncome - totalAllowance);
 
-  // Step 2 — tax bands
+  // Step 2 — non-allowance bands applied to taxableIncome if group has allowances, grossIncome otherwise
+  const baseIncome = totalAllowance > 0 ? taxableIncome : grossIncome;
   let totalTax = 0;
   const taxBreakdown = [];
 
   for (const band of sorted) {
-    if (band.rate === 0) continue;
+    if (band.is_allowance) continue;
+
     const from = band.band_from;
     const to = band.band_to !== null ? band.band_to : Infinity;
-    const slice = Math.max(0, Math.min(taxableIncome, to) - from);
+    const slice = Math.max(0, Math.min(baseIncome, to) - from);
     const tax = slice * (band.rate / 100);
     taxBreakdown.push({ band, slice, tax });
     totalTax += tax;
@@ -108,14 +115,11 @@ function buildInlineForm(fields, onSubmit, onCancel) {
       if (currentRow.length) { rowEls.push(currentRow); currentRow = []; }
       continue;
     }
-    const attrs = {
-      type: f.inputType || 'text',
-      placeholder: f.placeholder || '',
-    };
+    const attrs = { type: f.inputType || 'text', placeholder: f.placeholder || '' };
     if (f.step) attrs.step = f.step;
     if (f.min) attrs.min = f.min;
     if (f.max) attrs.max = f.max;
-    if (f.width) attrs.style = { width: f.width }; // object, not string
+    if (f.width) attrs.style = { width: f.width };
 
     const input = el('input', attrs);
     inputs[f.key] = input;
@@ -178,7 +182,7 @@ export async function mount(el_) {
 
   function buildIncomeCard() {
     const nameInput = el('input', { type: 'text', placeholder: 'e.g. Bonus' });
-    const amountInput = el('input', { type: 'number', placeholder: `${sym}0.00 `, step: '0.01', min: '0' });
+    const amountInput = el('input', { type: 'number', placeholder: `${sym}0.00`, step: '0.01', min: '0' });
     const freqSel = buildFreqSelect();
     const submitBtn = el('button', { className: 'btn-primary' }, 'Add');
     const cancelBtn = el('button', { className: 'btn-ghost' }, 'Cancel');
@@ -186,9 +190,7 @@ export async function mount(el_) {
 
     const addForm = el('div', { className: 'add-form-inline' },
       el('div', { className: 'form-row' },
-        el('span', { className: 'plan-sym' }),
         nameInput,
-        el('span', { className: 'plan-sym' }),
         amountInput,
         freqSel, submitBtn, cancelBtn,
       ),
@@ -296,7 +298,7 @@ export async function mount(el_) {
     const { totalTax, totalAllowance, taxableIncome, allowanceBreakdown, taxBreakdown } =
       calculateGroupTax(group.bands, grossIncome);
 
-    // ── allowance rows ────────────────────────────────────────────────────
+    // ── allowance rows (is_allowance=true) ───────────────────────────────
     const allowanceRows = allowanceBreakdown.map(({ band, effectiveCeiling }) => {
       const isTapered = band.taper_start !== null;
       const delBtn = el('button', { className: 'btn-delete' }, '✕');
@@ -331,7 +333,7 @@ export async function mount(el_) {
       )
       : null;
 
-    // ── tax band rows ─────────────────────────────────────────────────────
+    // ── tax band rows (is_allowance=false) ───────────────────────────────
     const taxBandRows = taxBreakdown.map(({ band, slice, tax }) => {
       const to = band.band_to !== null ? fmt(band.band_to, sym) : '∞';
       const delBtn = el('button', { className: 'btn-delete' }, '✕');
@@ -342,7 +344,9 @@ export async function mount(el_) {
         el('span', { className: 'plan-band-range muted' },
           fmt(band.band_from, sym) + ' → ' + to,
         ),
-        el('span', { className: 'plan-band-rate' }, band.rate + '%'),
+        el('span', { className: 'plan-band-rate' + (band.rate === 0 ? ' muted' : '') },
+          band.rate + '%'
+        ),
         el('span', { className: 'plan-band-tax ' + (tax > 0 ? 'outgoing' : 'muted') },
           tax > 0 ? '−' + fmt(tax, sym) : '—'
         ),
@@ -357,7 +361,7 @@ export async function mount(el_) {
         { key: 'name', placeholder: 'Band name', width: '150px' },
         { key: 'rate', inputType: 'number', placeholder: 'Rate %', step: '0.01', min: '0', max: '100', width: '80px' },
         { key: 'from', inputType: 'number', placeholder: `From ${sym}`, step: '1', min: '0', width: '100px' },
-        { key: 'to', inputType: 'number', placeholder: `To (blank = no ceiling) ${sym}`, step: '1', min: '0', width: '155px' },
+        { key: 'to', inputType: 'number', placeholder: `To (blank = ∞) ${sym}`, step: '1', min: '0', width: '140px' },
       ],
       async (inputs) => {
         const name = inputs.name.value.trim();
@@ -370,6 +374,7 @@ export async function mount(el_) {
           await api.createTaxBand(group.id, {
             name, rate, band_from: from, band_to: to,
             taper_start: null, taper_rate: null, taper_floor: null,
+            is_allowance: 0,
             order_index: group.bands.length,
           });
           await load();
@@ -390,7 +395,7 @@ export async function mount(el_) {
       [
         { key: 'name', placeholder: 'Allowance name', width: '150px' },
         { key: 'amount', inputType: 'number', placeholder: `Amount ${sym}`, step: '1', min: '0', width: '110px' },
-        { key: 'taperStart', inputType: 'number', placeholder: `Taper starts at (optional) ${sym}`, step: '1', min: '0', width: '180px' },
+        { key: 'taperStart', inputType: 'number', placeholder: `Taper starts at (optional) ${sym}`, step: '1', min: '0', width: '175px' },
         { key: 'taperRate', inputType: 'number', placeholder: 'Taper rate (e.g. 0.5)', step: '0.01', min: '0', width: '155px' },
       ],
       async (inputs) => {
@@ -404,7 +409,8 @@ export async function mount(el_) {
           await api.createTaxBand(group.id, {
             name, rate: 0, band_from: 0, band_to: amount,
             taper_start: taperStart, taper_rate: taperRate, taper_floor: 0,
-            order_index: group.bands.filter(b => b.rate === 0).length,
+            is_allowance: 1,
+            order_index: group.bands.filter(b => b.is_allowance).length,
           });
           await load();
         } catch (e) { return e.message; }
@@ -442,7 +448,7 @@ export async function mount(el_) {
   // ── Summary card ──────────────────────────────────────────────────────────
 
   function renderSummary(grossIncome, groups) {
-    // taxableIncome kept separate — salary sacrifice / pension will subtract here later
+    // taxableIncome is gross here — salary sacrifice / pension reduce it later
     const taxableIncome = grossIncome;
 
     const totalTax = groups.reduce((sum, g) => {

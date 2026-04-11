@@ -22,36 +22,40 @@ DEFAULT_TAX_GROUPS = [
                 "taper_start": 100000,
                 "taper_rate": 0.5,
                 "taper_floor": 0,
+                "is_allowance": 1,
                 "order_index": 0,
             },
             {
                 "name": "Basic Rate",
                 "rate": 20,
-                "band_from": 12570,
-                "band_to": 50270,
+                "band_from": 0,
+                "band_to": 37700,
                 "taper_start": None,
                 "taper_rate": None,
                 "taper_floor": None,
+                "is_allowance": 0,
                 "order_index": 1,
             },
             {
                 "name": "Higher Rate",
                 "rate": 40,
-                "band_from": 50270,
-                "band_to": 125140,
+                "band_from": 37700,
+                "band_to": 112570,
                 "taper_start": None,
                 "taper_rate": None,
                 "taper_floor": None,
+                "is_allowance": 0,
                 "order_index": 2,
             },
             {
                 "name": "Additional Rate",
                 "rate": 45,
-                "band_from": 125140,
+                "band_from": 112570,
                 "band_to": None,
                 "taper_start": None,
                 "taper_rate": None,
                 "taper_floor": None,
+                "is_allowance": 0,
                 "order_index": 3,
             },
         ],
@@ -68,6 +72,7 @@ DEFAULT_TAX_GROUPS = [
                 "taper_start": None,
                 "taper_rate": None,
                 "taper_floor": None,
+                "is_allowance": 0,
                 "order_index": 0,
             },
             {
@@ -78,6 +83,7 @@ DEFAULT_TAX_GROUPS = [
                 "taper_start": None,
                 "taper_rate": None,
                 "taper_floor": None,
+                "is_allowance": 0,
                 "order_index": 1,
             },
             {
@@ -88,6 +94,7 @@ DEFAULT_TAX_GROUPS = [
                 "taper_start": None,
                 "taper_rate": None,
                 "taper_floor": None,
+                "is_allowance": 0,
                 "order_index": 2,
             },
         ],
@@ -174,19 +181,27 @@ def init_db():
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS plan_tax_bands (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                group_id    INTEGER NOT NULL REFERENCES plan_tax_groups(id) ON DELETE CASCADE,
-                name        TEXT    NOT NULL,
-                rate        REAL    NOT NULL,
-                band_from   REAL    NOT NULL DEFAULT 0,
-                band_to     REAL,
-                taper_start REAL,
-                taper_rate  REAL,
-                taper_floor REAL,
-                order_index INTEGER NOT NULL DEFAULT 0
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                group_id     INTEGER NOT NULL REFERENCES plan_tax_groups(id) ON DELETE CASCADE,
+                name         TEXT    NOT NULL,
+                rate         REAL    NOT NULL,
+                band_from    REAL    NOT NULL DEFAULT 0,
+                band_to      REAL,
+                taper_start  REAL,
+                taper_rate   REAL,
+                taper_floor  REAL,
+                is_allowance INTEGER NOT NULL DEFAULT 0,
+                order_index  INTEGER NOT NULL DEFAULT 0
             )
         """)
         conn.commit()
+
+        # migrate existing plan_tax_bands tables that lack is_allowance
+        try:
+            conn.execute("ALTER TABLE plan_tax_bands ADD COLUMN is_allowance INTEGER NOT NULL DEFAULT 0")
+            conn.commit()
+        except Exception:
+            pass
 
 
 def upsert_user(google_id: str, email: str, name: str) -> int:
@@ -223,13 +238,13 @@ def upsert_user(google_id: str, email: str, name: str) -> int:
                     conn.execute("""
                         INSERT INTO plan_tax_bands
                             (group_id, name, rate, band_from, band_to,
-                             taper_start, taper_rate, taper_floor, order_index)
-                        VALUES (?,?,?,?,?,?,?,?,?)
+                             taper_start, taper_rate, taper_floor, is_allowance, order_index)
+                        VALUES (?,?,?,?,?,?,?,?,?,?)
                     """, (
                         group_id, band["name"], band["rate"],
                         band["band_from"], band["band_to"],
-                        band["taper_start"], band["taper_rate"],
-                        band["taper_floor"], band["order_index"],
+                        band["taper_start"], band["taper_rate"], band["taper_floor"],
+                        band["is_allowance"], band["order_index"],
                     ))
 
         conn.commit()
