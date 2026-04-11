@@ -4,6 +4,26 @@
  *   const picker = createDatePicker(inputEl, () => ({ month, year }));
  *   picker.destroy(); // cleanup
  */
+
+// ── tiny helpers ──────────────────────────────────────────────────────────────
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'className') node.className = v;
+    else if (k === 'style') Object.assign(node.style, v);
+    else if (k.startsWith('data-')) node.dataset[k.slice(5)] = v;
+    else node.setAttribute(k, v);
+  }
+  for (const child of children) {
+    if (child == null) continue;
+    node.append(typeof child === 'string' ? document.createTextNode(child) : child);
+  }
+  return node;
+}
+
+// ── module ────────────────────────────────────────────────────────────────────
+
 export function createDatePicker(input, getContext, initialDate = null) {
   let popup = null;
   let selectedDate = initialDate;
@@ -15,13 +35,10 @@ export function createDatePicker(input, getContext, initialDate = null) {
   function open() {
     if (popup) return;
     const { month, year } = getContext();
-
-    popup = document.createElement('div');
-    popup.className = 'dp-popup';
+    popup = el('div', { className: 'dp-popup' });
     render(popup, month, year);
     document.body.appendChild(popup);
     position();
-
     setTimeout(() => document.addEventListener('click', onOutside), 0);
   }
 
@@ -42,30 +59,38 @@ export function createDatePicker(input, getContext, initialDate = null) {
     if (!popup.contains(e.target) && e.target !== input) close();
   }
 
-  function render(el, month, year) {
+  function render(container, month, year) {
     const daysInMonth = new Date(year, month, 0).getDate();
     const firstDay = new Date(year, month - 1, 1).getDay(); // 0=Sun
-    const days = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+    const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
-    let cells = '';
-    // empty cells before day 1
-    for (let i = 0; i < firstDay; i++) cells += `<div></div>`;
-    for (let d = 1; d <= daysInMonth; d++) {
-      const val = formatDate(year, month, d);
-      const active = val === selectedDate ? 'dp-active' : '';
-      cells += `<div class="dp-day ${active}" data-val="${val}">${d}</div>`;
+    // Header
+    const header = el('div', { className: 'dp-header' },
+      el('span', { className: 'dp-month-label' },
+        new Date(year, month - 1).toLocaleString('default', { month: 'long' }) + ' ' + year
+      ),
+      el('span', { className: 'dp-hint' }, 'locked to current month'),
+    );
+
+    // Weekday labels
+    const weekdays = el('div', { className: 'dp-grid dp-weekdays' },
+      ...DAYS.map(d => el('div', {}, d))
+    );
+
+    // Day cells
+    const daysGrid = el('div', { className: 'dp-grid dp-days' });
+
+    for (let i = 0; i < firstDay; i++) {
+      daysGrid.append(el('div', {}));
     }
 
-    el.innerHTML = `
-      <div class="dp-header">
-        <span class="dp-month-label">${new Date(year, month - 1).toLocaleString('default', { month: 'long' })} ${year}</span>
-        <span class="dp-hint">locked to current month</span>
-      </div>
-      <div class="dp-grid dp-weekdays">${days.map(d => `<div>${d}</div>`).join('')}</div>
-      <div class="dp-grid dp-days">${cells}</div>
-    `;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const val = formatDate(year, month, d);
+      const cell = el('div', {
+        className: 'dp-day' + (val === selectedDate ? ' dp-active' : ''),
+        'data-val': val,
+      }, String(d));
 
-    el.querySelectorAll('.dp-day').forEach(cell => {
       cell.addEventListener('click', e => {
         e.stopPropagation();
         selectedDate = cell.dataset.val;
@@ -73,11 +98,15 @@ export function createDatePicker(input, getContext, initialDate = null) {
         input.dispatchEvent(new Event('change'));
         close();
       });
-    });
+
+      daysGrid.append(cell);
+    }
+
+    container.replaceChildren(header, weekdays, daysGrid);
   }
 
   input.addEventListener('click', e => { e.stopPropagation(); open(); });
-  input.addEventListener('focus', e => { open(); });
+  input.addEventListener('focus', () => { open(); });
   input.readOnly = true;
   input.style.cursor = 'pointer';
 
@@ -87,5 +116,5 @@ export function createDatePicker(input, getContext, initialDate = null) {
     input.removeEventListener('focus', open);
   }
 
-  return { destroy, setDate: (d) => { selectedDate = d; } };
+  return { destroy, setDate: d => { selectedDate = d; } };
 }
