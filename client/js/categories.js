@@ -1,55 +1,70 @@
 import { api } from './api.js';
 
-export async function mount(el) {
-  el.innerHTML = `
-    <div class="page-header">
-      <h1>Categories</h1>
-    </div>
+// ── tiny helpers ─────────────────────────────────────────────────────────────
 
-    <div class="card add-form">
-      <h2>Add category</h2>
-      <div class="form-row">
-        <input type="text" id="c-name" placeholder="Category name" />
-        <button id="c-submit" class="btn-primary">Add</button>
-      </div>
-      <p id="c-error" class="form-error"></p>
-    </div>
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'className') node.className = v;
+    else if (k === 'style') Object.assign(node.style, v);
+    else if (k.startsWith('data-')) node.dataset[k.slice(5)] = v;
+    else node.setAttribute(k, v);
+  }
+  for (const child of children) {
+    if (child == null) continue;
+    node.append(typeof child === 'string' ? document.createTextNode(child) : child);
+  }
+  return node;
+}
 
-    <div class="card">
-      <div id="cat-list"><div class="loading">Loading…</div></div>
-    </div>
-  `;
+// ── module ────────────────────────────────────────────────────────────────────
 
-  const catList = el.querySelector('#cat-list');
-  const cError = el.querySelector('#c-error');
-  const cName = el.querySelector('#c-name');
+export async function mount(el_) {
+  // ── persistent DOM skeleton (built once) ───────────────────────────────────
+
+  const cName = el('input', { type: 'text', placeholder: 'Category name' });
+  const cSubmit = el('button', { className: 'btn-primary' }, 'Add');
+  const cError = el('p', { className: 'form-error' });
+  const catList = el('div');
+
+  el_.append(
+    el('div', { className: 'page-header' },
+      el('h1', {}, 'Categories'),
+    ),
+    el('div', { className: 'card add-form' },
+      el('h2', {}, 'Add category'),
+      el('div', { className: 'form-row' }, cName, cSubmit),
+      cError,
+    ),
+    el('div', { className: 'card' }, catList),
+  );
+
+  // ── load & render list ────────────────────────────────────────────────────
 
   async function load() {
-    catList.innerHTML = '<div class="loading">Loading…</div>';
+    catList.replaceChildren(el('div', { className: 'loading' }, 'Loading…'));
     const cats = await api.getCategories();
+
     if (!cats.length) {
-      catList.innerHTML = '<div class="empty">No categories yet.</div>';
+      catList.replaceChildren(el('div', { className: 'empty' }, 'No categories yet.'));
       return;
     }
-    catList.innerHTML = `
-      <ul class="cat-list">
-        ${cats.map(c => `
-          <li>
-            <span>${c.name}</span>
-            <button class="btn-delete" data-id="${c.id}">✕</button>
-          </li>
-        `).join('')}
-      </ul>
-    `;
-    catList.querySelectorAll('.btn-delete').forEach(btn => {
+
+    const ul = el('ul', { className: 'cat-list' });
+    for (const c of cats) {
+      const btn = el('button', { className: 'btn-delete', 'data-id': c.id }, '✕');
       btn.addEventListener('click', async () => {
         await api.deleteCategory(btn.dataset.id);
         load();
       });
-    });
+      ul.append(el('li', {}, el('span', {}, c.name), btn));
+    }
+    catList.replaceChildren(ul);
   }
 
-  el.querySelector('#c-submit').addEventListener('click', async () => {
+  // ── add category ──────────────────────────────────────────────────────────
+
+  cSubmit.addEventListener('click', async () => {
     cError.textContent = '';
     const name = cName.value.trim();
     if (!name) { cError.textContent = 'Name is required.'; return; }
@@ -63,7 +78,7 @@ export async function mount(el) {
   });
 
   cName.addEventListener('keydown', e => {
-    if (e.key === 'Enter') el.querySelector('#c-submit').click();
+    if (e.key === 'Enter') cSubmit.click();
   });
 
   await load();
