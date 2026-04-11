@@ -70,6 +70,26 @@ def init_db():
                 UNIQUE(user_id, category)
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS plan_income (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL REFERENCES users(id),
+                name       TEXT    NOT NULL,
+                amount     REAL    NOT NULL,
+                frequency  TEXT    NOT NULL DEFAULT 'Monthly',
+                created_at TEXT    DEFAULT (datetime('now'))
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS plan_expenses (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL REFERENCES users(id),
+                name       TEXT    NOT NULL,
+                amount     REAL    NOT NULL,
+                frequency  TEXT    NOT NULL DEFAULT 'Monthly',
+                created_at TEXT    DEFAULT (datetime('now'))
+            )
+        """)
         conn.commit()
 
 

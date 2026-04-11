@@ -24,7 +24,7 @@ app.add_middleware(
 database.init_db()
 
 
-# ── Auth helpers ──────────────────────────────────────────────────────────
+# ── Auth helpers ──────────────────────────────────────────────────────────────
 
 def current_user(session: Optional[str] = Cookie(default=None)) -> int:
     if not session:
@@ -35,7 +35,7 @@ def current_user(session: Optional[str] = Cookie(default=None)) -> int:
     return user_id
 
 
-# ── Auth routes ───────────────────────────────────────────────────────────
+# ── Auth routes ───────────────────────────────────────────────────────────────
 
 @app.get("/auth/login")
 def login():
@@ -104,7 +104,7 @@ def update_settings(settings: SettingsIn, session: Optional[str] = Cookie(defaul
     return {"currency": settings.currency, "theme": settings.theme}
 
 
-# ── Models ────────────────────────────────────────────────────────────────
+# ── Models ────────────────────────────────────────────────────────────────────
 
 class TransactionIn(BaseModel):
     date: date
@@ -124,7 +124,7 @@ class CategoryOut(CategoryIn):
     id: int
 
 
-# ── Transactions ──────────────────────────────────────────────────────────
+# ── Transactions ──────────────────────────────────────────────────────────────
 
 @app.post("/transactions", response_model=TransactionOut, status_code=201)
 def create_transaction(tx: TransactionIn, session: Optional[str] = Cookie(default=None)):
@@ -174,7 +174,7 @@ def delete_transaction(tx_id: int, session: Optional[str] = Cookie(default=None)
         raise HTTPException(status_code=404, detail="Transaction not found")
 
 
-# ── Categories ────────────────────────────────────────────────────────────
+# ── Categories ────────────────────────────────────────────────────────────────
 
 @app.get("/categories", response_model=list[CategoryOut])
 def get_categories(session: Optional[str] = Cookie(default=None)):
@@ -213,7 +213,7 @@ def delete_category(cat_id: int, session: Optional[str] = Cookie(default=None)):
         raise HTTPException(status_code=404, detail="Category not found")
 
 
-# ── Budgets ───────────────────────────────────────────────────────────────
+# ── Budgets ───────────────────────────────────────────────────────────────────
 
 class BudgetItem(BaseModel):
     category: str
@@ -243,13 +243,94 @@ def upsert_budgets(items: list[BudgetItem], session: Optional[str] = Cookie(defa
     return {"ok": True}
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────
+# ── Plan ──────────────────────────────────────────────────────────────────────
+
+class PlanItem(BaseModel):
+    name: str
+    amount: float
+    frequency: str = "Monthly"
+
+class PlanItemOut(PlanItem):
+    id: int
+
+
+@app.get("/plan/income", response_model=list[PlanItemOut])
+def get_plan_income(session: Optional[str] = Cookie(default=None)):
+    user_id = current_user(session)
+    with database.get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM plan_income WHERE user_id = ? ORDER BY created_at", (user_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+@app.post("/plan/income", response_model=PlanItemOut, status_code=201)
+def add_plan_income(item: PlanItem, session: Optional[str] = Cookie(default=None)):
+    user_id = current_user(session)
+    with database.get_connection() as conn:
+        cur = conn.execute(
+            "INSERT INTO plan_income (user_id, name, amount, frequency) VALUES (?,?,?,?)",
+            (user_id, item.name, item.amount, item.frequency),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM plan_income WHERE id = ?", (cur.lastrowid,)).fetchone()
+    return dict(row)
+
+
+@app.delete("/plan/income/{item_id}", status_code=204)
+def delete_plan_income(item_id: int, session: Optional[str] = Cookie(default=None)):
+    user_id = current_user(session)
+    with database.get_connection() as conn:
+        deleted = conn.execute(
+            "DELETE FROM plan_income WHERE id = ? AND user_id = ?", (item_id, user_id)
+        ).rowcount
+        conn.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+@app.get("/plan/expenses", response_model=list[PlanItemOut])
+def get_plan_expenses(session: Optional[str] = Cookie(default=None)):
+    user_id = current_user(session)
+    with database.get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM plan_expenses WHERE user_id = ? ORDER BY created_at", (user_id,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+@app.post("/plan/expenses", response_model=PlanItemOut, status_code=201)
+def add_plan_expense(item: PlanItem, session: Optional[str] = Cookie(default=None)):
+    user_id = current_user(session)
+    with database.get_connection() as conn:
+        cur = conn.execute(
+            "INSERT INTO plan_expenses (user_id, name, amount, frequency) VALUES (?,?,?,?)",
+            (user_id, item.name, item.amount, item.frequency),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM plan_expenses WHERE id = ?", (cur.lastrowid,)).fetchone()
+    return dict(row)
+
+
+@app.delete("/plan/expenses/{item_id}", status_code=204)
+def delete_plan_expense(item_id: int, session: Optional[str] = Cookie(default=None)):
+    user_id = current_user(session)
+    with database.get_connection() as conn:
+        deleted = conn.execute(
+            "DELETE FROM plan_expenses WHERE id = ? AND user_id = ?", (item_id, user_id)
+        ).rowcount
+        conn.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _row_to_dict(row):
     return {**dict(row)}
 
 
-# ── Static files (client) — mount last so API routes take priority ────────
+# ── Static files (client) — mount last so API routes take priority ────────────
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 

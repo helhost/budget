@@ -21,6 +21,7 @@
       <a href="#log"        data-page="log">        <span class="icon">◈</span> Log</a>
       <a href="#categories" data-page="categories"> <span class="icon">⊞</span> Categories</a>
       <a href="#budget"     data-page="budget">     <span class="icon">◑</span> Budget</a>
+      <a href="#plan" data-page="plan"><span class="icon">◧</span> Plan</a>
       <a href="#charts"     data-page="charts">     <span class="icon">◎</span> Charts</a>
       <div class="nav-divider"></div>
       <div class="nav-setting">
@@ -59,6 +60,7 @@
     import { mount as mountCategories } from './js/categories.js';
     import { mount as mountCharts }     from './js/charts.js';
     import { mount as mountBudget }     from './js/budget.js';
+    import { mount as mountPlan } from './js/plan.js';
     import { api } from './js/api.js';
 
     const CURRENCY_SYMBOLS = {
@@ -138,6 +140,7 @@
 
       register('log',        mountLog);
       register('budget',     mountBudget);
+      register('plan', mountPlan);
       register('categories', mountCategories);
       register('charts',     mountCharts);
 

@@ -19,7 +19,7 @@ async function request(method, path, body, redirectOn401 = true) {
 }
 
 export const api = {
-  // Auth — no redirect on 401, let the caller decide
+  // Auth
   me: () => request('GET', '/auth/me', null, false),
   logout: () => request('POST', '/auth/logout', null, false),
   updateSettings: (settings) => request('PUT', '/user/settings', settings),
@@ -38,4 +38,14 @@ export const api = {
   getCategories: () => request('GET', '/categories'),
   addCategory: (name) => request('POST', '/categories', { name }),
   deleteCategory: (id) => request('DELETE', `/categories/${id}`),
+
+  // Plan — Income
+  getPlanIncome: () => request('GET', '/plan/income'),
+  addPlanIncome: (item) => request('POST', '/plan/income', item),
+  deletePlanIncome: (id) => request('DELETE', `/plan/income/${id}`),
+
+  // Plan — Expenses
+  getPlanExpenses: () => request('GET', '/plan/expenses'),
+  addPlanExpense: (item) => request('POST', '/plan/expenses', item),
+  deletePlanExpense: (id) => request('DELETE', `/plan/expenses/${id}`),
 };
