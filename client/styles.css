@@ -296,6 +296,14 @@ tfoot td { border-top: 1px solid var(--border); border-bottom: none; padding-top
 }
 .cat-list li:last-child { border-bottom: none; }
 
+
+/* ── delete confirmation ── */
+.delete-confirm-wrap { display: flex; align-items: center; }
+.delete-confirm      { display: flex; align-items: center; gap: 6px; }
+.delete-confirm[hidden] { display: none; }
+.delete-confirm .btn-ghost { padding: 2px 8px; font-size: 12px; }
+.delete-confirm .btn-delete { color: var(--danger); }
+
 /* ── States ── */
 .loading, .empty, .error { padding: 32px; text-align: center; color: var(--muted); font-size: 13px; }
 .error { color: var(--danger); }

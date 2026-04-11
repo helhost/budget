@@ -1,6 +1,6 @@
 import { api } from './api.js';
 
-// ── tiny helpers ─────────────────────────────────────────────────────────────
+// ── tiny helpers ──────────────────────────────────────────────────────────────
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -52,12 +52,36 @@ export async function mount(el_) {
 
     const ul = el('ul', { className: 'cat-list' });
     for (const c of cats) {
-      const btn = el('button', { className: 'btn-delete', 'data-id': c.id }, '✕');
-      btn.addEventListener('click', async () => {
-        await api.deleteCategory(btn.dataset.id);
+      // Confirm row — hidden until ✕ is clicked
+      const yes = el('button', { className: 'btn-delete' }, 'Yes');
+      const no = el('button', { className: 'btn-ghost' }, 'No');
+      const confirm = el('div', { className: 'delete-confirm' },
+        el('span', { className: 'muted' }, 'Delete?'),
+        yes,
+        no,
+      );
+      confirm.hidden = true;
+
+      // Delete button
+      const deleteBtn = el('button', { className: 'btn-delete' }, '✕');
+
+      deleteBtn.addEventListener('click', () => {
+        deleteBtn.hidden = true;
+        confirm.hidden = false;
+      });
+      yes.addEventListener('click', async () => {
+        await api.deleteCategory(c.id);
         load();
       });
-      ul.append(el('li', {}, el('span', {}, c.name), btn));
+      no.addEventListener('click', () => {
+        confirm.hidden = true;
+        deleteBtn.hidden = false;
+      });
+
+      ul.append(el('li', {},
+        el('span', {}, c.name),
+        el('div', { className: 'delete-confirm-wrap' }, deleteBtn, confirm),
+      ));
     }
     catList.replaceChildren(ul);
   }
