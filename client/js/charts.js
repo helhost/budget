@@ -7,6 +7,25 @@ const COLORS = [
   '#38bdf8', '#f472b6', '#34d399', '#facc15', '#c084fc', '#60a5fa'
 ];
 
+// ── tiny helpers ──────────────────────────────────────────────────────────────
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'className') node.className = v;
+    else if (k === 'style') Object.assign(node.style, v);
+    else if (k.startsWith('data-')) node.dataset[k.slice(5)] = v;
+    else node.setAttribute(k, v);
+  }
+  for (const child of children) {
+    if (child == null) continue;
+    node.append(typeof child === 'string' ? document.createTextNode(child) : child);
+  }
+  return node;
+}
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
 function loadScript(src) {
   return new Promise((res, rej) => {
     if (window.Chart) return res();
@@ -22,7 +41,9 @@ function prevMonthOf(month, year) {
   return month === 1 ? { month: 12, year: year - 1 } : { month: month - 1, year };
 }
 
-export async function mount(el) {
+// ── module ────────────────────────────────────────────────────────────────────
+
+export async function mount(el_) {
   const sym = window.getCurrencySymbol ? window.getCurrencySymbol() : '£';
   const now = new Date();
 
@@ -30,51 +51,55 @@ export async function mount(el) {
   let viewYear = now.getFullYear();
   let investYear = now.getFullYear();
 
-  el.innerHTML = `
-    <div class="page-header"><h1>Charts</h1></div>
-    <div class="charts-grid">
+  // ── persistent DOM skeleton (built once) ───────────────────────────────────
 
-      <div class="widget">
-        <div class="widget-header">
-          <span class="widget-title">Cumulative Spending</span>
-          <div class="chart-nav">
-            <button class="btn-ghost chart-nav-btn" id="spend-prev">&#8592;</button>
-            <span class="widget-sub" id="spend-label"></span>
-            <button class="btn-ghost chart-nav-btn" id="spend-next">&#8594;</button>
-          </div>
-        </div>
-        <div class="chart-wrap"><canvas id="chart-spending"></canvas></div>
-      </div>
+  const spendLabel = el('span', { className: 'widget-sub' });
+  const spendPrev = el('button', { className: 'btn-ghost chart-nav-btn' }, '←');
+  const spendNext = el('button', { className: 'btn-ghost chart-nav-btn' }, '→');
+  const spendCanvas = el('canvas');
 
-      <div class="widget">
-        <div class="widget-header">
-          <span class="widget-title">Cumulative Savings</span>
-          <div class="chart-nav">
-            <button class="btn-ghost chart-nav-btn" id="invest-prev">&#8592;</button>
-            <span class="widget-sub" id="invest-label"></span>
-            <button class="btn-ghost chart-nav-btn" id="invest-next">&#8594;</button>
-          </div>
-        </div>
-        <div class="chart-wrap"><canvas id="chart-invest"></canvas></div>
-      </div>
+  const investLabel = el('span', { className: 'widget-sub' });
+  const investPrev = el('button', { className: 'btn-ghost chart-nav-btn' }, '←');
+  const investNext = el('button', { className: 'btn-ghost chart-nav-btn' }, '→');
+  const investCanvas = el('canvas');
 
-      <div class="widget wide">
-        <div class="widget-header">
-          <span class="widget-title">Spending by Category</span>
-          <div class="pill-tabs" id="pie-tabs">
-            <button class="pill active" data-range="month">This month</button>
-            <button class="pill"        data-range="year">This year</button>
-            <button class="pill"        data-range="all">All time</button>
-          </div>
-        </div>
-        <div class="pie-layout">
-          <div class="chart-wrap pie-wrap"><canvas id="chart-pie"></canvas></div>
-          <div id="pie-legend" class="pie-legend"></div>
-        </div>
-      </div>
+  const pieCanvas = el('canvas');
+  const pieLegend = el('div', { className: 'pie-legend' });
+  const pieWrap = el('div', { className: 'chart-wrap pie-wrap' }, pieCanvas);
 
-    </div>
-  `;
+  const pillMonth = el('button', { className: 'pill active', 'data-range': 'month' }, 'This month');
+  const pillYear = el('button', { className: 'pill', 'data-range': 'year' }, 'This year');
+  const pillAll = el('button', { className: 'pill', 'data-range': 'all' }, 'All time');
+
+  el_.append(
+    el('div', { className: 'page-header' }, el('h1', {}, 'Charts')),
+    el('div', { className: 'charts-grid' },
+
+      el('div', { className: 'widget' },
+        el('div', { className: 'widget-header' },
+          el('span', { className: 'widget-title' }, 'Cumulative Spending'),
+          el('div', { className: 'chart-nav' }, spendPrev, spendLabel, spendNext),
+        ),
+        el('div', { className: 'chart-wrap' }, spendCanvas),
+      ),
+
+      el('div', { className: 'widget' },
+        el('div', { className: 'widget-header' },
+          el('span', { className: 'widget-title' }, 'Cumulative Savings'),
+          el('div', { className: 'chart-nav' }, investPrev, investLabel, investNext),
+        ),
+        el('div', { className: 'chart-wrap' }, investCanvas),
+      ),
+
+      el('div', { className: 'widget wide' },
+        el('div', { className: 'widget-header' },
+          el('span', { className: 'widget-title' }, 'Spending by Category'),
+          el('div', { className: 'pill-tabs' }, pillMonth, pillYear, pillAll),
+        ),
+        el('div', { className: 'pie-layout' }, pieWrap, pieLegend),
+      ),
+    ),
+  );
 
   await loadScript(CHART_JS);
 
@@ -101,13 +126,13 @@ export async function mount(el) {
 
   const allTxs = await api.getAllTransactions();
 
-  // ── 1. Cumulative Spending ──────────────────────────────────────────────
+  // ── 1. Cumulative Spending ────────────────────────────────────────────────
+
   let spendChart = null;
 
   async function renderSpending() {
     const prev = prevMonthOf(viewMonth, viewYear);
-    document.getElementById('spend-label').textContent =
-      `${MONTHS[viewMonth - 1]} ${viewYear} vs ${MONTHS[prev.month - 1]} ${prev.year}`;
+    spendLabel.textContent = `${MONTHS[viewMonth - 1]} ${viewYear} vs ${MONTHS[prev.month - 1]} ${prev.year}`;
 
     const [curTxs, prevTxs] = await Promise.all([
       api.getTransactions(viewMonth, viewYear),
@@ -133,7 +158,7 @@ export async function mount(el) {
       ? now.getDate() : days;
 
     if (spendChart) spendChart.destroy();
-    spendChart = new window.Chart(document.getElementById('chart-spending'), {
+    spendChart = new window.Chart(spendCanvas, {
       type: 'line',
       data: {
         labels,
@@ -164,21 +189,22 @@ export async function mount(el) {
     });
   }
 
-  el.querySelector('#spend-prev').addEventListener('click', () => {
+  spendPrev.addEventListener('click', () => {
     const p = prevMonthOf(viewMonth, viewYear);
     viewMonth = p.month; viewYear = p.year;
     renderSpending();
   });
-  el.querySelector('#spend-next').addEventListener('click', () => {
+  spendNext.addEventListener('click', () => {
     viewMonth++; if (viewMonth > 12) { viewMonth = 1; viewYear++; }
     renderSpending();
   });
 
-  // ── 2. Cumulative Savings ───────────────────────────────────────────────
+  // ── 2. Cumulative Savings ─────────────────────────────────────────────────
+
   let investChart = null;
 
   function renderInvestments() {
-    document.getElementById('invest-label').textContent = String(investYear);
+    investLabel.textContent = String(investYear);
 
     const yearTxs = allTxs.filter(t => t.date.startsWith(String(investYear)) && t.type === 'saving');
     const monthly = new Array(12).fill(0);
@@ -187,7 +213,7 @@ export async function mount(el) {
     const cumData = monthly.map(v => (cum += v, cum));
 
     if (investChart) investChart.destroy();
-    investChart = new window.Chart(document.getElementById('chart-invest'), {
+    investChart = new window.Chart(investCanvas, {
       type: 'line',
       data: {
         labels: MONTHS,
@@ -208,10 +234,11 @@ export async function mount(el) {
     });
   }
 
-  el.querySelector('#invest-prev').addEventListener('click', () => { investYear--; renderInvestments(); });
-  el.querySelector('#invest-next').addEventListener('click', () => { investYear++; renderInvestments(); });
+  investPrev.addEventListener('click', () => { investYear--; renderInvestments(); });
+  investNext.addEventListener('click', () => { investYear++; renderInvestments(); });
 
-  // ── 3. Pie chart ────────────────────────────────────────────────────────
+  // ── 3. Pie chart ──────────────────────────────────────────────────────────
+
   let pieChart = null;
 
   function buildPie(range) {
@@ -229,41 +256,54 @@ export async function mount(el) {
     const total = data.reduce((s, v) => s + v, 0);
 
     if (pieChart) pieChart.destroy();
+
     if (!labels.length) {
-      document.getElementById('chart-pie').parentElement.innerHTML =
-        '<div class="empty" style="height:200px;display:flex;align-items:center;justify-content:center">No data</div>';
-      document.getElementById('pie-legend').innerHTML = '';
+      const empty = el('div', { className: 'empty' }, 'No data');
+      empty.style.cssText = 'height:200px;display:flex;align-items:center;justify-content:center';
+      pieWrap.replaceChildren(empty);
+      pieLegend.replaceChildren();
       return;
     }
 
-    pieChart = new window.Chart(document.getElementById('chart-pie'), {
+    // Restore canvas if it was replaced by the empty state
+    if (!pieWrap.contains(pieCanvas)) pieWrap.replaceChildren(pieCanvas);
+
+    pieChart = new window.Chart(pieCanvas, {
       type: 'doughnut',
-      data: { labels, datasets: [{ data, backgroundColor: COLORS.slice(0, labels.length), borderWidth: 0, hoverOffset: 6 }] },
+      data: {
+        labels,
+        datasets: [{ data, backgroundColor: COLORS.slice(0, labels.length), borderWidth: 0, hoverOffset: 6 }],
+      },
       options: {
         cutout: '65%',
         plugins: {
           legend: { display: false },
           tooltip: {
             ...chartDefaults.plugins.tooltip,
-            callbacks: { label: ctx => ` ${sym}${ctx.parsed.toFixed(2)} (${(ctx.parsed / total * 100).toFixed(1)}%)` }
+            callbacks: { label: ctx => ` ${sym}${ctx.parsed.toFixed(2)} (${(ctx.parsed / total * 100).toFixed(1)}%)` },
           },
         },
       },
     });
 
-    document.getElementById('pie-legend').innerHTML = labels.map((l, i) => `
-      <div class="legend-row">
-        <span class="legend-dot" style="background:${COLORS[i]}"></span>
-        <span class="legend-label">${l}</span>
-        <span class="legend-val">${sym}${data[i].toFixed(2)}</span>
-      </div>
-    `).join('');
+    pieLegend.replaceChildren(
+      ...labels.map((l, i) => {
+        const dot = el('span', { className: 'legend-dot' });
+        dot.style.background = COLORS[i];
+        return el('div', { className: 'legend-row' },
+          dot,
+          el('span', { className: 'legend-label' }, l),
+          el('span', { className: 'legend-val' }, sym + data[i].toFixed(2)),
+        );
+      })
+    );
   }
 
   buildPie('month');
-  el.querySelectorAll('.pill').forEach(btn => {
+
+  [pillMonth, pillYear, pillAll].forEach(btn => {
     btn.addEventListener('click', () => {
-      el.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
+      [pillMonth, pillYear, pillAll].forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       buildPie(btn.dataset.range);
     });
