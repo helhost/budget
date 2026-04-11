@@ -5,63 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Budget — Sign in</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --bg: #0f1117; --surface: #181c27; --border: #252a38;
-      --text: #e8eaf0; --muted: #5a6070; --accent: #4f8ef7;
-    }
-    body {
-      font-family: 'DM Sans', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 48px 40px;
-      width: 340px;
-      text-align: center;
-    }
-    .logo {
-      font-family: 'DM Mono', monospace;
-      font-size: 24px;
-      color: var(--accent);
-      margin-bottom: 8px;
-    }
-    .tagline {
-      font-size: 13px;
-      color: var(--muted);
-      margin-bottom: 36px;
-    }
-    .btn-google {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      width: 100%;
-      padding: 12px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-family: 'DM Sans', sans-serif;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      text-decoration: none;
-      transition: border-color 0.15s;
-    }
-    .btn-google:hover { border-color: var(--accent); }
-    .btn-google svg { width: 18px; height: 18px; }
-  </style>
+  <link rel="stylesheet" href="./styles.css">
 </head>
-<body>
+<body class="login">
   <div class="card">
     <div class="logo">budget.</div>
     <p class="tagline">Personal finance, simply tracked.</p>
