@@ -9,6 +9,91 @@ DEFAULT_CATEGORIES = [
     "Savings", "Investments", "Gifts", "Insurance", "Other",
 ]
 
+DEFAULT_TAX_GROUPS = [
+    {
+        "name": "Income Tax",
+        "order_index": 0,
+        "bands": [
+            {
+                "name": "Personal Allowance",
+                "rate": 0,
+                "band_from": 0,
+                "band_to": 12570,
+                "taper_start": 100000,
+                "taper_rate": 0.5,
+                "taper_floor": 0,
+                "order_index": 0,
+            },
+            {
+                "name": "Basic Rate",
+                "rate": 20,
+                "band_from": 12570,
+                "band_to": 50270,
+                "taper_start": None,
+                "taper_rate": None,
+                "taper_floor": None,
+                "order_index": 1,
+            },
+            {
+                "name": "Higher Rate",
+                "rate": 40,
+                "band_from": 50270,
+                "band_to": 125140,
+                "taper_start": None,
+                "taper_rate": None,
+                "taper_floor": None,
+                "order_index": 2,
+            },
+            {
+                "name": "Additional Rate",
+                "rate": 45,
+                "band_from": 125140,
+                "band_to": None,
+                "taper_start": None,
+                "taper_rate": None,
+                "taper_floor": None,
+                "order_index": 3,
+            },
+        ],
+    },
+    {
+        "name": "National Insurance",
+        "order_index": 1,
+        "bands": [
+            {
+                "name": "Zero Rate",
+                "rate": 0,
+                "band_from": 0,
+                "band_to": 12570,
+                "taper_start": None,
+                "taper_rate": None,
+                "taper_floor": None,
+                "order_index": 0,
+            },
+            {
+                "name": "Primary Rate",
+                "rate": 8,
+                "band_from": 12570,
+                "band_to": 50270,
+                "taper_start": None,
+                "taper_rate": None,
+                "taper_floor": None,
+                "order_index": 1,
+            },
+            {
+                "name": "Upper Rate",
+                "rate": 2,
+                "band_from": 50270,
+                "band_to": None,
+                "taper_start": None,
+                "taper_rate": None,
+                "taper_floor": None,
+                "order_index": 2,
+            },
+        ],
+    },
+]
+
 
 def get_connection():
     conn = sqlite3.connect(DB_PATH)
@@ -30,7 +115,6 @@ def init_db():
                 created_at TEXT    DEFAULT (datetime('now'))
             )
         """)
-        # migrate existing DBs
         for col, definition in [
             ("currency", "TEXT NOT NULL DEFAULT 'GBP'"),
             ("theme",    "TEXT NOT NULL DEFAULT 'dark'"),
@@ -77,17 +161,29 @@ def init_db():
                 name       TEXT    NOT NULL,
                 amount     REAL    NOT NULL,
                 frequency  TEXT    NOT NULL DEFAULT 'Monthly',
-                created_at TEXT    DEFAULT (datetime('now'))
+                created_at TEXT
             )
         """)
         conn.execute("""
-            CREATE TABLE IF NOT EXISTS plan_expenses (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id    INTEGER NOT NULL REFERENCES users(id),
-                name       TEXT    NOT NULL,
-                amount     REAL    NOT NULL,
-                frequency  TEXT    NOT NULL DEFAULT 'Monthly',
-                created_at TEXT    DEFAULT (datetime('now'))
+            CREATE TABLE IF NOT EXISTS plan_tax_groups (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     INTEGER NOT NULL REFERENCES users(id),
+                name        TEXT    NOT NULL,
+                order_index INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS plan_tax_bands (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                group_id    INTEGER NOT NULL REFERENCES plan_tax_groups(id) ON DELETE CASCADE,
+                name        TEXT    NOT NULL,
+                rate        REAL    NOT NULL,
+                band_from   REAL    NOT NULL DEFAULT 0,
+                band_to     REAL,
+                taper_start REAL,
+                taper_rate  REAL,
+                taper_floor REAL,
+                order_index INTEGER NOT NULL DEFAULT 0
             )
         """)
         conn.commit()
@@ -110,6 +206,31 @@ def upsert_user(google_id: str, email: str, name: str) -> int:
                 "INSERT OR IGNORE INTO categories (user_id, name) VALUES (?, ?)",
                 (user_id, cat),
             )
-        conn.commit()
 
+        # Seed default tax groups if user has none
+        existing = conn.execute(
+            "SELECT COUNT(*) FROM plan_tax_groups WHERE user_id = ?", (user_id,)
+        ).fetchone()[0]
+
+        if existing == 0:
+            for group in DEFAULT_TAX_GROUPS:
+                cur = conn.execute(
+                    "INSERT INTO plan_tax_groups (user_id, name, order_index) VALUES (?,?,?)",
+                    (user_id, group["name"], group["order_index"]),
+                )
+                group_id = cur.lastrowid
+                for band in group["bands"]:
+                    conn.execute("""
+                        INSERT INTO plan_tax_bands
+                            (group_id, name, rate, band_from, band_to,
+                             taper_start, taper_rate, taper_floor, order_index)
+                        VALUES (?,?,?,?,?,?,?,?,?)
+                    """, (
+                        group_id, band["name"], band["rate"],
+                        band["band_from"], band["band_to"],
+                        band["taper_start"], band["taper_rate"],
+                        band["taper_floor"], band["order_index"],
+                    ))
+
+        conn.commit()
         return user_id

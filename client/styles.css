@@ -643,7 +643,9 @@ body.login {
 }
 .plan-section-header h2 { margin-bottom: 0; }
 
-.plan-list { margin-bottom: 8px; }
+.plan-add-btn { font-size: 12px; padding: 4px 12px; }
+
+.plan-list { margin-bottom: 4px; }
 
 .plan-row {
   display: flex;
@@ -654,24 +656,21 @@ body.login {
   font-size: 13px;
 }
 .plan-row:last-child { border-bottom: none; }
-
 .plan-row-name   { flex: 1; }
 .plan-row-amount { font-family: var(--mono); font-size: 13px; white-space: nowrap; }
-.plan-row-freq   { color: var(--muted); font-size: 11px; }
-.plan-row-yearly { font-family: var(--mono); font-size: 12px; margin-left: auto; }
+.plan-row-freq   { font-size: 11px; }
+.plan-row-yearly { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
 
-.plan-form-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 0;
-  border-top: 1px solid var(--border);
-  flex-wrap: wrap;
+.plan-sym {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 13px;
+  margin-right: -4px;
 }
-.plan-form-row input  { font-size: 13px; }
-.plan-form-row select { font-size: 13px; }
-.plan-sym { color: var(--muted); font-family: var(--mono); font-size: 13px; margin-right: -4px; }
 .plan-form-error { color: var(--danger); font-size: 12px; }
+
+.add-form-inline { padding: 12px 0 4px; border-top: 1px solid var(--border); }
+.add-form-inline .form-row { margin-bottom: 6px; }
 
 .plan-totals { margin-top: 4px; }
 .plan-totals-row {
@@ -680,6 +679,7 @@ body.login {
   gap: 8px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
+  flex-wrap: wrap;
 }
 .plan-totals-label {
   font-size: 11px;
@@ -690,7 +690,78 @@ body.login {
 }
 .plan-totals-val {
   font-family: var(--mono);
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 500;
   margin-right: 20px;
 }
+
+/* ── Tax groups ── */
+
+.plan-group {
+  padding: 16px 0 16px 16px;
+  border-bottom: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  margin-bottom: 12px;
+  border-radius: 0 4px 4px 0;
+}
+
+.plan-group:last-child { border-bottom: none; margin-bottom: 0; }
+.plan-group:last-child { border-bottom: none; }
+
+.plan-group-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.plan-group-name  { font-size: 13px; font-weight: 600; flex: 1; }
+.plan-group-total { font-family: var(--mono); font-size: 13px; }
+
+.plan-bands { margin-bottom: 10px; }
+
+.plan-band-btn-bar {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.plan-band-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.plan-band-row:last-child { border-bottom: none; }
+.plan-band-name  { flex: 1; }
+.plan-band-taper { font-size: 11px; }
+.plan-band-range { font-family: var(--mono); font-size: 11px; white-space: nowrap; }
+.plan-band-rate  { font-family: var(--mono); font-size: 12px; width: 36px; text-align: right; }
+.plan-band-tax   { font-family: var(--mono); font-size: 12px; width: 80px; text-align: right; }
+
+.plan-band-form {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.plan-band-form .form-row { margin-bottom: 6px; }
+.plan-taper-row { align-items: center; }
+
+/* ── Summary card ── */
+
+.plan-summary-card {
+  margin-top: 0;
+}
+.plan-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+}
+.plan-summary-item {
+  flex: 1;
+  min-width: 140px;
+  padding: 14px 20px;
+  border-right: 1px solid var(--border);
+}
+.plan-summary-item:last-child { border-right: none; }

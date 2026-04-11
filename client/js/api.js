@@ -44,8 +44,13 @@ export const api = {
   addPlanIncome: (item) => request('POST', '/plan/income', item),
   deletePlanIncome: (id) => request('DELETE', `/plan/income/${id}`),
 
-  // Plan — Expenses
-  getPlanExpenses: () => request('GET', '/plan/expenses'),
-  addPlanExpense: (item) => request('POST', '/plan/expenses', item),
-  deletePlanExpense: (id) => request('DELETE', `/plan/expenses/${id}`),
+  // Plan — Tax Groups (includes bands nested)
+  getTaxGroups: () => request('GET', '/plan/tax/groups'),
+  createTaxGroup: (group) => request('POST', '/plan/tax/groups', group),
+  deleteTaxGroup: (groupId) => request('DELETE', `/plan/tax/groups/${groupId}`),
+
+  // Plan — Tax Bands
+  createTaxBand: (groupId, band) => request('POST', `/plan/tax/groups/${groupId}/bands`, band),
+  updateTaxBand: (bandId, band) => request('PUT', `/plan/tax/bands/${bandId}`, band),
+  deleteTaxBand: (bandId) => request('DELETE', `/plan/tax/bands/${bandId}`),
 };

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Cookie, Request
+from fastapi import FastAPI, HTTPException, Cookie
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -55,12 +55,8 @@ async def callback(code: str):
     response = RedirectResponse(f"{frontend_url}/#log")
     is_prod = "localhost" not in frontend_url
     response.set_cookie(
-        key="session",
-        value=token,
-        httponly=True,
-        secure=is_prod,
-        samesite="lax",
-        max_age=60 * 60 * 24 * 30,
+        key="session", value=token, httponly=True,
+        secure=is_prod, samesite="lax", max_age=60 * 60 * 24 * 30,
     )
     return response
 
@@ -243,29 +239,27 @@ def upsert_budgets(items: list[BudgetItem], session: Optional[str] = Cookie(defa
     return {"ok": True}
 
 
-# ── Plan ──────────────────────────────────────────────────────────────────────
+# ── Plan — Income ─────────────────────────────────────────────────────────────
 
-class PlanItem(BaseModel):
+class PlanIncomeItem(BaseModel):
     name: str
     amount: float
     frequency: str = "Monthly"
 
-class PlanItemOut(PlanItem):
+class PlanIncomeItemOut(PlanIncomeItem):
     id: int
 
-
-@app.get("/plan/income", response_model=list[PlanItemOut])
+@app.get("/plan/income", response_model=list[PlanIncomeItemOut])
 def get_plan_income(session: Optional[str] = Cookie(default=None)):
     user_id = current_user(session)
     with database.get_connection() as conn:
         rows = conn.execute(
-            "SELECT * FROM plan_income WHERE user_id = ? ORDER BY created_at", (user_id,)
+            "SELECT * FROM plan_income WHERE user_id = ? ORDER BY id", (user_id,)
         ).fetchall()
     return [dict(r) for r in rows]
 
-
-@app.post("/plan/income", response_model=PlanItemOut, status_code=201)
-def add_plan_income(item: PlanItem, session: Optional[str] = Cookie(default=None)):
+@app.post("/plan/income", response_model=PlanIncomeItemOut, status_code=201)
+def add_plan_income(item: PlanIncomeItem, session: Optional[str] = Cookie(default=None)):
     user_id = current_user(session)
     with database.get_connection() as conn:
         cur = conn.execute(
@@ -275,7 +269,6 @@ def add_plan_income(item: PlanItem, session: Optional[str] = Cookie(default=None
         conn.commit()
         row = conn.execute("SELECT * FROM plan_income WHERE id = ?", (cur.lastrowid,)).fetchone()
     return dict(row)
-
 
 @app.delete("/plan/income/{item_id}", status_code=204)
 def delete_plan_income(item_id: int, session: Optional[str] = Cookie(default=None)):
@@ -289,39 +282,135 @@ def delete_plan_income(item_id: int, session: Optional[str] = Cookie(default=Non
         raise HTTPException(status_code=404, detail="Not found")
 
 
-@app.get("/plan/expenses", response_model=list[PlanItemOut])
-def get_plan_expenses(session: Optional[str] = Cookie(default=None)):
+# ── Plan — Tax Groups ─────────────────────────────────────────────────────────
+
+class TaxGroupIn(BaseModel):
+    name: str
+    order_index: int = 0
+
+class TaxGroupOut(TaxGroupIn):
+    id: int
+
+class TaxBandIn(BaseModel):
+    name: str
+    rate: float
+    band_from: float = 0
+    band_to: Optional[float] = None
+    taper_start: Optional[float] = None
+    taper_rate: Optional[float] = None
+    taper_floor: Optional[float] = None
+    order_index: int = 0
+
+class TaxBandOut(TaxBandIn):
+    id: int
+    group_id: int
+
+
+@app.get("/plan/tax/groups")
+def get_tax_groups(session: Optional[str] = Cookie(default=None)):
     user_id = current_user(session)
     with database.get_connection() as conn:
-        rows = conn.execute(
-            "SELECT * FROM plan_expenses WHERE user_id = ? ORDER BY created_at", (user_id,)
+        groups = conn.execute(
+            "SELECT * FROM plan_tax_groups WHERE user_id = ? ORDER BY order_index", (user_id,)
         ).fetchall()
-    return [dict(r) for r in rows]
+        result = []
+        for g in groups:
+            bands = conn.execute(
+                "SELECT * FROM plan_tax_bands WHERE group_id = ? ORDER BY order_index", (g["id"],)
+            ).fetchall()
+            result.append({**dict(g), "bands": [dict(b) for b in bands]})
+    return result
 
 
-@app.post("/plan/expenses", response_model=PlanItemOut, status_code=201)
-def add_plan_expense(item: PlanItem, session: Optional[str] = Cookie(default=None)):
+@app.post("/plan/tax/groups", status_code=201)
+def create_tax_group(group: TaxGroupIn, session: Optional[str] = Cookie(default=None)):
     user_id = current_user(session)
     with database.get_connection() as conn:
         cur = conn.execute(
-            "INSERT INTO plan_expenses (user_id, name, amount, frequency) VALUES (?,?,?,?)",
-            (user_id, item.name, item.amount, item.frequency),
+            "INSERT INTO plan_tax_groups (user_id, name, order_index) VALUES (?,?,?)",
+            (user_id, group.name, group.order_index),
         )
         conn.commit()
-        row = conn.execute("SELECT * FROM plan_expenses WHERE id = ?", (cur.lastrowid,)).fetchone()
-    return dict(row)
+        row = conn.execute("SELECT * FROM plan_tax_groups WHERE id = ?", (cur.lastrowid,)).fetchone()
+    return {**dict(row), "bands": []}
 
 
-@app.delete("/plan/expenses/{item_id}", status_code=204)
-def delete_plan_expense(item_id: int, session: Optional[str] = Cookie(default=None)):
+@app.delete("/plan/tax/groups/{group_id}", status_code=204)
+def delete_tax_group(group_id: int, session: Optional[str] = Cookie(default=None)):
     user_id = current_user(session)
     with database.get_connection() as conn:
         deleted = conn.execute(
-            "DELETE FROM plan_expenses WHERE id = ? AND user_id = ?", (item_id, user_id)
+            "DELETE FROM plan_tax_groups WHERE id = ? AND user_id = ?", (group_id, user_id)
         ).rowcount
         conn.commit()
     if not deleted:
         raise HTTPException(status_code=404, detail="Not found")
+
+
+@app.post("/plan/tax/groups/{group_id}/bands", status_code=201)
+def create_tax_band(group_id: int, band: TaxBandIn, session: Optional[str] = Cookie(default=None)):
+    user_id = current_user(session)
+    with database.get_connection() as conn:
+        # verify group belongs to user
+        g = conn.execute(
+            "SELECT id FROM plan_tax_groups WHERE id = ? AND user_id = ?", (group_id, user_id)
+        ).fetchone()
+        if not g:
+            raise HTTPException(status_code=404, detail="Group not found")
+        cur = conn.execute("""
+            INSERT INTO plan_tax_bands
+                (group_id, name, rate, band_from, band_to,
+                 taper_start, taper_rate, taper_floor, order_index)
+            VALUES (?,?,?,?,?,?,?,?,?)
+        """, (
+            group_id, band.name, band.rate, band.band_from, band.band_to,
+            band.taper_start, band.taper_rate, band.taper_floor, band.order_index,
+        ))
+        conn.commit()
+        row = conn.execute("SELECT * FROM plan_tax_bands WHERE id = ?", (cur.lastrowid,)).fetchone()
+    return dict(row)
+
+
+@app.put("/plan/tax/bands/{band_id}")
+def update_tax_band(band_id: int, band: TaxBandIn, session: Optional[str] = Cookie(default=None)):
+    user_id = current_user(session)
+    with database.get_connection() as conn:
+        # verify ownership via group
+        row = conn.execute("""
+            SELECT b.id FROM plan_tax_bands b
+            JOIN plan_tax_groups g ON g.id = b.group_id
+            WHERE b.id = ? AND g.user_id = ?
+        """, (band_id, user_id)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Band not found")
+        conn.execute("""
+            UPDATE plan_tax_bands SET
+                name=?, rate=?, band_from=?, band_to=?,
+                taper_start=?, taper_rate=?, taper_floor=?, order_index=?
+            WHERE id=?
+        """, (
+            band.name, band.rate, band.band_from, band.band_to,
+            band.taper_start, band.taper_rate, band.taper_floor,
+            band.order_index, band_id,
+        ))
+        conn.commit()
+        updated = conn.execute("SELECT * FROM plan_tax_bands WHERE id = ?", (band_id,)).fetchone()
+    return dict(updated)
+
+
+@app.delete("/plan/tax/bands/{band_id}", status_code=204)
+def delete_tax_band(band_id: int, session: Optional[str] = Cookie(default=None)):
+    user_id = current_user(session)
+    with database.get_connection() as conn:
+        row = conn.execute("""
+            SELECT b.id FROM plan_tax_bands b
+            JOIN plan_tax_groups g ON g.id = b.group_id
+            WHERE b.id = ? AND g.user_id = ?
+        """, (band_id, user_id)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Band not found")
+        conn.execute("DELETE FROM plan_tax_bands WHERE id = ?", (band_id,))
+        conn.commit()
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -330,7 +419,7 @@ def _row_to_dict(row):
     return {**dict(row)}
 
 
-# ── Static files (client) — mount last so API routes take priority ────────────
+# ── Static files ──────────────────────────────────────────────────────────────
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
